@@ -788,7 +788,7 @@ Menu.prototype = {
                 this.show_main_menu();
             }
         } else {
-            var is_mojo_page = /^\/$|\/login|\/home|\/smart-indices|\/ad|\/open-source-projects|\/white-labels|\/bulk-trader-facility|\/partners$/.test(window.location.pathname);
+            var is_mojo_page = /^\/$|\/login|\/home|\/smart-indices|\/ad|\/open-source-projects|\/white-labels|\/bulk-trader-facility|\/partners|\/payment-agent$/.test(window.location.pathname);
             if(!is_mojo_page) {
                 trading.addClass('active');
                 this.show_main_menu();
@@ -1263,7 +1263,11 @@ Contents.prototype = {
                 }
             } else {
                 var show_financial = false;
-                if (c_config && c_config['financial_company'] == 'maltainvest') {
+
+                // also allow UK MLT client to open MF account
+                if ( (c_config && c_config['financial_company'] == 'maltainvest') ||
+                     (this.client.residence == 'gb' && /^MLT/.test(this.client.loginid)) )
+                {
                     show_financial = true;
                     for (var j=0;j<loginid_array.length;j++) {
                         if (loginid_array[j].financial) {
@@ -3379,11 +3383,13 @@ pjax_config_page('chart_application', function () {
 pjax_config_page('trading', function () {
     return {
         onLoad: function () {
+            TradingEvents.init();
             Content.populate();
             TradeSocket.init();
-            Symbols.currentSymbol('');
-            Symbols.getSymbols();
-            addEventListenerForm();
+            Symbols.getSymbols(1);
+            if (document.getElementById('websocket_form')) {
+                addEventListenerForm();
+            }
         },
         onUnload: function() {
             TradeSocket.close();
@@ -6290,13 +6296,17 @@ BetForm.Time.EndTime.prototype = {
                                             quote: data[i][2]
                                         };
                                         if (tick.epoch > start_moment.unix() && $self.digit_tick_count < how_many_ticks) {
+                                            // checking for duplicate entries and skip them if they exists
+                                            if ($self.applicable_ticks.length > 0) {
+                                                var previous_tick_epoch = $self.info_for_display[$self.info_for_display.length-1][1];
+                                                if (previous_tick_epoch === tick.epoch) {
+                                                    continue;
+                                                }
+                                            }
+
                                             $self.applicable_ticks.push(tick.quote);
                                             $self.digit_tick_count++;
                                             $self.info_for_display.push([$self.digit_tick_count,tick.epoch,tick.quote]);
-                                            var last_digit = tick.quote.toString().substr(-1);
-                                            if (!$('#digit-current').hasClass('flipper')) {
-                                                $('#digit-current').addClass('flipper focus');
-                                            }
                                             $self.update_display();
 
                                             if ($('#digit-contract-details').css('display') === 'none') {
@@ -6341,6 +6351,10 @@ BetForm.Time.EndTime.prototype = {
                     var last_digit = parseInt(last_tick.toString().substr(-1));
                     var potential_payout = parseFloat($('#outcome-payout').data('payout').toString().replace(',',''));
                     var cost = parseFloat($('#outcome-buyprice').data('buyprice').toString().replace(',',''));
+
+                    // buy price
+                    $('#contract-outcome-buyprice').text($('#outcome-buyprice').data('buyprice'));
+
                     var final_price;
 
                     if (prediction === 'match') {
@@ -7422,7 +7436,7 @@ BetForm.Time.EndTime.prototype = {
         },
         register: function () {
             var that = this;
-            $('#profit-table, #portfolio-table, #bet_container, #statement-table').on('click', '.open_contract_details', function (e) {
+            $('#profit-table, #portfolio-table, #bet_container, #statement-table, #trading_socket_container').on('click', '.open_contract_details', function (e) {
                 var $this = $(this);
                 e.preventDefault();
                 _previous_button_clicked = this;
@@ -8606,7 +8620,7 @@ var enable_residence_form_submit = function () {
     });
 };
 
-pjax_config_page('new_real', function() {
+pjax_config_page('new_account/real', function() {
     return {
         onLoad: function() {
             client_form.on_residence_change();
@@ -8668,7 +8682,7 @@ var hide_account_opening_for_risk_disclaimer = function () {
     }
 };
 
-pjax_config_page('new_financial', function() {
+pjax_config_page('new_account/maltainvest', function() {
     return {
         onLoad: function() {
             if (!page.client.is_real) {
@@ -9210,6 +9224,17 @@ pjax_config_page('/white-labels', function() {
     return {
         onLoad: function() {
             sidebar_scroll($('.white-labels'));
+        },
+        onUnload: function() {
+            $(window).off('scroll');
+        }
+    };
+});
+
+pjax_config_page('/payment-agent', function() {
+    return {
+        onLoad: function() {
+            sidebar_scroll($('.payment-agent'));
         },
         onUnload: function() {
             $(window).off('scroll');
@@ -9958,8 +9983,12 @@ var Barriers = (function () {
         if (barriers && formName) {
             var barrier = barriers[formName];
             if(barrier) {
-                var unit = document.getElementById('duration_units');
-                var currentTick = Tick.quote();
+                var unit = document.getElementById('duration_units'),
+                    currentTick = Tick.quote(),
+                    indicativeBarrierTooltip = document.getElementById('indicative_barrier_tooltip'),
+                    indicativeHighBarrierTooltip = document.getElementById('indicative_high_barrier_tooltip'),
+                    indicativeLowBarrierTooltip = document.getElementById('indicative_low_barrier_tooltip');
+
                 if (barrier.count === 1) {
                     document.getElementById('high_barrier_row').style.display = 'none';
                     document.getElementById('low_barrier_row').style.display = 'none';
@@ -9970,14 +9999,17 @@ var Barriers = (function () {
                         span = document.getElementById('barrier_span');
                     if (unit && unit.value === 'd' && currentTick) {
                         elm.value = (parseFloat(currentTick) + parseFloat(barrier['barrier'])).toFixed(3);
-                        elm.textContent = parseFloat(currentTick) + parseFloat(barrier['barrier']).toFixed(3);
+                        elm.textContent = (parseFloat(currentTick) + parseFloat(barrier['barrier'])).toFixed(3);
                         tooltip.style.display = 'none';
                         span.style.display = 'inherit';
+                        // no need to display indicative barrier in case of absolute barrier
+                        indicativeBarrierTooltip.textContent = '';
                     } else {
                         elm.value = barrier['barrier'];
                         elm.textContent = barrier['barrier'];
                         span.style.display = 'none';
                         tooltip.style.display = 'inherit';
+                        indicativeBarrierTooltip.textContent = (parseFloat(currentTick) + parseFloat(barrier['barrier'])).toFixed(3);
                     }
                     return;
                 } else if (barrier.count === 2) {
@@ -10003,6 +10035,9 @@ var Barriers = (function () {
                         high_span.style.display = 'inherit';
                         low_tooltip.style.display = 'none';
                         low_span.style.display = 'inherit';
+
+                        indicativeHighBarrierTooltip.textContent = '';
+                        indicativeLowBarrierTooltip.textContent = '';
                     } else {
                         high_elm.value = barrier['barrier'];
                         high_elm.textContent = barrier['barrier'];
@@ -10014,6 +10049,9 @@ var Barriers = (function () {
                         high_tooltip.style.display = 'inherit';
                         low_span.style.display = 'none';
                         low_tooltip.style.display = 'inherit';
+
+                        indicativeHighBarrierTooltip.textContent = (parseFloat(currentTick) + parseFloat(barrier['barrier'])).toFixed(3);
+                        indicativeLowBarrierTooltip.textContent = (parseFloat(currentTick) + parseFloat(barrier['barrier1'])).toFixed(3);
                     }
                     return;
                 }
@@ -10038,41 +10076,170 @@ var Barriers = (function () {
  * This contains common functions we need for processing the response
  */
 
+ Element.prototype.hide = function(){
+     this.style.display = 'none';
+ };
+
+ Element.prototype.show = function(){
+     this.style.display = '';
+ };
+
 /*
  * function to display contract form as element of ul
  */
-function displayContractForms(id, elements, selected) {
-    'use strict';
-    var target = document.getElementById(id),
-        fragment = document.createDocumentFragment(),
-        len = elements.length;
+ function displayContractForms(id, elements, selected) {
+     'use strict';
+     var target = document.getElementById(id),
+         fragment = document.createDocumentFragment(),
+         len = elements.length;
 
-    while (target && target.firstChild) {
-        target.removeChild(target.firstChild);
-    }
+     target.innerHTML = '';
 
-    if (elements) {
-        var keys = Object.keys(elements).sort(compareContractCategory);
-        keys.forEach(function (key) {
-            if (elements.hasOwnProperty(key)) {
-                var li = document.createElement('li'),
-                    content = document.createTextNode(elements[key]);
-                li.setAttribute('id', key.toLowerCase());
-                if (selected && selected === key) {
-                    li.setAttribute('class', 'active');
+     if (elements) {
+         var tree = getContractCategoryTree(elements);
+         for(var i=0;i<tree.length;i++){
+             var el1 = tree[i];
+             var li = document.createElement('li');
+
+             li.classList.add('tm-li');
+             if(i===0){
+                 li.classList.add('first');
+             }
+             else if(i===tree.length-1){
+                 li.classList.add('last');
+             }
+
+             if(typeof el1 === 'object'){
+                 var fragment2 = document.createDocumentFragment();
+                 var flag = 0;
+                 var first = '';
+                 for(var j=0; j<el1[1].length; j++){
+                     var el2 = el1[1][j];
+                     var li2 = document.createElement('li'),
+                         a2 = document.createElement('a'),
+                         content2 = document.createTextNode(elements[el2]);
+                     li2.classList.add('tm-li-2');
+
+                     if(j===0){
+                        first = el2.toLowerCase();
+                        li2.classList.add('first');
+                     }
+                     else if(j===el1[1].length-1){
+                         li2.classList.add('last');
+                     }
+
+                     var span_class = '';
+                     if (selected && selected === el2.toLowerCase()) {
+                         li2.classList.add('active');
+                         a2.classList.add('a-active');
+                         flag = 1;
+                     }
+                     
+                     a2.classList.add('tm-a-2');
+                     a2.appendChild(content2);
+                     a2.setAttribute('menuitem',el2.toLowerCase());
+                     a2.setAttribute('id', el2.toLowerCase());
+
+                     li2.appendChild(a2);
+
+                     fragment2.appendChild(li2);
+                 }
+                 if(fragment2.hasChildNodes()){
+                     var ul = document.createElement('ul'),
+                         a = document.createElement('a'),
+                         content = document.createTextNode(elements[el1[0]]);
+
+                     a.appendChild(content);
+                     a.setAttribute('class', 'tm-a');
+                     a.setAttribute('menuitem',first);
+                     ul.appendChild(fragment2);
+                     ul.setAttribute('class', 'tm-ul-2');
+
+                     if(flag){
+                        li.classList.add('active');
+                     }
+
+                     li.appendChild(a);
+                     li.appendChild(ul);
+                 }
+             }
+             else{
+                 var content3 = document.createTextNode(elements[el1]),
+                     a3 = document.createElement('a');
+
+                 if (selected && selected === el1.toLowerCase()) {
+                     a3.classList.add('a-active');
+                     li.classList.add('active');
+                 }
+                 a3.appendChild(content3);
+                 a3.classList.add('tm-a');
+                 a3.setAttribute('menuitem',el1);
+                 a3.setAttribute('id', el1.toLowerCase());
+                 li.appendChild(a3);
+             }
+             fragment.appendChild(li);
+         }
+         if (target) {
+             target.appendChild(fragment);
+             var list = target.getElementsByClassName('tm-li');
+             for(var k=0; k < list.length; k++){
+                 var li4 = list[k];
+                 li4.addEventListener("mouseover", function(){
+                     this.classList.add('hover');
+                 });
+                 li4.addEventListener("mouseout", function(){
+                     this.classList.remove('hover');
+                 });
+             }
+         }
+     }
+ }
+
+
+ function displayMarkets(id, elements, selected) {
+     'use strict';
+     var target= document.getElementById(id),
+         fragment =  document.createDocumentFragment();
+
+     while (target && target.firstChild) {
+         target.removeChild(target.firstChild);
+     }
+
+     for (var key in elements) {
+         if (elements.hasOwnProperty(key)){
+             var option = document.createElement('option'), content = document.createTextNode(elements[key].name);
+             option.setAttribute('value', key);
+             if (selected && selected === key) {
+                 option.setAttribute('selected', 'selected');
+             }
+             if(!elements[key].is_active){
+                option.setAttribute('disabled', '');
+             }
+             option.appendChild(content);
+             fragment.appendChild(option);
+
+             if(elements[key].submarkets && Object.keys(elements[key].submarkets).length){
+                for(var key2 in elements[key].submarkets){
+                    if(key2){
+                        option = document.createElement('option');
+                        option.setAttribute('value', key2);
+                        if (selected && selected === key2) {
+                            option.setAttribute('selected', 'selected');
+                        }
+                        if(!elements[key].submarkets[key2].is_active){
+                           option.setAttribute('disabled', '');
+                        }
+                        option.textContent = '\xA0\xA0\xA0\xA0'+elements[key].submarkets[key2].name;
+                        fragment.appendChild(option);
+                    }
                 }
-                li.appendChild(content);
-                fragment.appendChild(li);
-            }
-        });
-
-        if (target) {
-            target.appendChild(fragment);
-        }
-    }
-}
-
-
+             }
+         }
+     }
+     if (target) {
+         target.appendChild(fragment);
+     }
+ }
 /*
  * function to create `option` and append to select box with id `id`
  */
@@ -10232,6 +10399,22 @@ function showLoadingOverlay() {
     }
 }
 
+function showPriceOverlay() {
+    'use strict';
+    var elm = document.getElementById('loading_container2');
+    if (elm) {
+        elm.style.display = 'block';
+    }
+}
+
+function hidePriceOverlay() {
+    'use strict';
+    var elm = document.getElementById('loading_container2');
+    if (elm) {
+        elm.style.display = 'none';
+    }
+}
+
 /*
  * function to hide contract confirmation overlay container
  */
@@ -10240,6 +10423,10 @@ function hideOverlayContainer() {
     var elm = document.getElementById('contract_confirmation_container');
     if (elm) {
         elm.style.display = 'none';
+    }
+    var elm2 = document.getElementById('contracts_list');
+    if (elm2) {
+        elm2.style.display = 'flex';
     }
 }
 
@@ -10264,28 +10451,41 @@ function compareMarkets(a, b) {
     return 0;
 }
 
-/*
- * function to assign sorting to contract category
- */
-function compareContractCategory(a, b) {
-    var sortedContractCategory = {
-        'risefall': 0,
-        'higherlower': 1,
-        'touchnotouch': 2,
-        'endsinout': 3,
-        'staysinout': 4,
-        'asian': 5,
-        'digits': 6,
-        'spreads': 7
-    };
+function getContractCategoryTree(elements){
 
-    if (sortedContractCategory[a.toLowerCase()] < sortedContractCategory[b.toLowerCase()]) {
-        return -1;
+    var tree = [
+        ['updown',
+            ['risefall',
+            'higherlower']
+        ],
+        'touchnotouch',
+        ['inout',
+            ['endsinout',
+            'staysinout']
+        ],
+        'asian',
+        'digits',
+        'spreads'
+    ];
+
+    if(elements){
+        tree = tree.map(function(e){
+            if(typeof e === 'object'){
+                e[1] = e[1].filter(function(e1){
+                    return elements[e1];
+                });
+                if(!e[1].length){
+                    e = '';
+                }
+            }
+            else if(!elements[e]){
+                e = '';
+            }
+            return e;
+        });
+        tree = tree.filter(function(v){ return v.length; });   
     }
-    if (sortedContractCategory[a.toLowerCase()] > sortedContractCategory[b.toLowerCase()]) {
-        return 1;
-    }
-    return 0;
+    return tree;
 }
 
 /*
@@ -10326,6 +10526,30 @@ function toggleActiveNavMenuElement(nav, eventElement) {
     }
 }
 
+function toggleActiveCatMenuElement(nav, eventElementId) {
+    var eventElement = document.getElementById(eventElementId);
+    var liElements = nav.querySelectorAll('.active, .a-active');
+    var classes = eventElement.classList;
+
+    if (!classes.contains('active')) {
+        for (var i = 0, len = liElements.length; i < len; i++){
+            liElements[i].classList.remove('active');
+            liElements[i].classList.remove('a-active');
+        }
+        classes.add('a-active');
+
+        i = 0;
+        var parent;
+        while((parent = eventElement.parentElement) && parent.id !== nav.id && i < 10){
+            if(parent.tagName === 'LI'){
+                parent.classList.add('active');
+            }
+            eventElement = parent;
+            i++;
+        }
+    }
+}
+
 /*
  * function to set placeholder text based on current form, used for mobile menu
  */
@@ -10340,46 +10564,21 @@ function setFormPlaceholderContent(name) {
 /*
  * function to display the profit and return of bet under each trade container
  */
-function displayCommentPrice(id, currency, type, payout) {
+function displayCommentPrice(node, currency, type, payout) {
     'use strict';
 
-    var div = document.getElementById(id);
-
-    while (div && div.firstChild) {
-        div.removeChild(div.firstChild);
-    }
-
-    if (div && type && payout) {
+    if (node && type && payout) {
         var profit = payout - type,
             return_percent = (profit/type)*100,
-            comment = document.createTextNode(Content.localize().textNetProfit + ': ' + currency + ' ' + profit.toFixed(2) + ' | ' + Content.localize().textReturn + ' ' + return_percent.toFixed(0) + '%');
+            comment = Content.localize().textNetProfit + ': ' + currency + ' ' + profit.toFixed(2) + ' | ' + Content.localize().textReturn + ' ' + return_percent.toFixed(0) + '%';
 
         if (isNaN(profit) || isNaN(return_percent)) {
-            div.style.display = 'none';
+            node.hide();
         } else {
-            div.style.display = 'block';
-            div.appendChild(comment);
+            node.show();
+            node.textContent = comment;
         }
     }
-}
-
-/*
- * This function loops through the available contracts and markets
- * that are not supposed to be shown are replaced
- *
- * this is TEMPORARY, it will be removed when we fix backend
- */
-function getAllowedContractCategory(contracts) {
-    'use strict';
-    var obj = {};
-    for(var key in contracts) {
-        if (contracts.hasOwnProperty(key)) {
-            if (!(/digits/i.test(contracts[key])) && !(/spreads/i.test(contracts[key]))) {
-                obj[key] = contracts[key];
-            }
-        }
-    }
-    return obj;
 }
 
 /*
@@ -10411,16 +10610,10 @@ function debounce(func, wait, immediate) {
  * function to check if selected market is allowed for current user
  */
 function getDefaultMarket() {
-   var mkt = sessionStorage.getItem('market') || 'forex';
-   if (getCookieItem('loginid')) {
-       var allowedMarkets = getCookieItem('allowed_markets');
-       var re = new RegExp(mkt, 'i');
-       if (!re.test(allowedMarkets)) {
-           var arr = allowedMarkets.replace(/\"/g, "");
-           arr = arr.split(",");
-           arr.sort(compareMarkets);
-           return arr[0];
-       }
+   var mkt = sessionStorage.getItem('market');
+   var markets = Symbols.markets(1);
+   if(!mkt ||  !markets[mkt]){
+        mkt = Object.keys(markets)[0];
    }
    return mkt;
 }
@@ -10440,11 +10633,57 @@ function addEventListenerForm(){
  * this creates a button, clicks it, and destroys it to invoke the listener
  */
 function submitForm(form) {
-    var button = form.ownerDocument.createElement('input');
-    button.style.display = 'none';
-    button.type = 'submit';
-    form.appendChild(button).click();
-    form.removeChild(button);
+    // var button = form.ownerDocument.createElement('input');
+    // button.style.display = 'none';
+    // button.type = 'submit';
+    // form.appendChild(button).click();
+    // form.removeChild(button);
+}
+
+/*
+ * function to display indicative barrier
+ */
+function displayIndicativeBarrier() {
+    var unit = document.getElementById('duration_units'),
+        currentTick = Tick.quote(),
+        indicativeBarrierTooltip = document.getElementById('indicative_barrier_tooltip'),
+        indicativeHighBarrierTooltip = document.getElementById('indicative_high_barrier_tooltip'),
+        indicativeLowBarrierTooltip = document.getElementById('indicative_low_barrier_tooltip'),
+        barrierElement = document.getElementById('barrier'),
+        highBarrierElement = document.getElementById('barrier_high'),
+        lowBarrierElement = document.getElementById('barrier_low');
+
+    if (unit && unit.value !== 'd' && currentTick) {
+        if (indicativeBarrierTooltip && isVisible(indicativeBarrierTooltip)) {
+            indicativeBarrierTooltip.textContent = (parseFloat(currentTick) + parseFloat(barrierElement.value)).toFixed(3);
+        }
+
+        if (indicativeHighBarrierTooltip && isVisible(indicativeHighBarrierTooltip)) {
+            indicativeHighBarrierTooltip.textContent = (parseFloat(currentTick) + parseFloat(highBarrierElement.value)).toFixed(3);
+        }
+
+        if (indicativeLowBarrierTooltip && isVisible(indicativeLowBarrierTooltip)) {
+            indicativeLowBarrierTooltip.textContent = (parseFloat(currentTick) + parseFloat(lowBarrierElement.value)).toFixed(3);
+        }
+    } else {
+        indicativeBarrierTooltip.textContent = '';
+        indicativeHighBarrierTooltip.textContent = '';
+        indicativeLowBarrierTooltip.textContent = '';
+    }
+}
+
+/*
+ * function to sort the duration in ascending order
+ */
+function durationOrder(duration){
+    var order = {
+        t:1,
+        s:2,
+        m:3,
+        h:4,
+        d:5
+    };
+    return order[duration];
 }
 ;var Content = (function () {
     'use strict';
@@ -10480,11 +10719,24 @@ function submitForm(form) {
             textNow: text.localize('Now'),
             textContractConfirmationHeading: text.localize('Contract Confirmation'),
             textContractConfirmationReference: text.localize('Your transaction reference is'),
-            textContractConfirmationBalance: text.localize('Your current balance is'),
+            textContractConfirmationBalance: text.localize('Account balance:'),
             textFormRiseFall: text.localize('Rise/Fall'),
             textFormHigherLower: text.localize('Higher/Lower'),
+            textFormUpDown: text.localize('Up/Down'),
+            textFormInOut: text.localize('In/Out'),
             textContractPeriod: text.localize('Contract period'),
-            textExercisePeriod: text.localize('Exercise period')
+            textExercisePeriod: text.localize('Exercise price'),
+            predictionLabel: text.localize('Last Digit Prediction'),
+            textContractConfirmationPayout: text.localize('Potential Payout'),
+            textContractConfirmationCost: text.localize('Total Cost'),
+            textContractConfirmationProfit: text.localize('Potential Profit'),
+            textAmountPerPoint: text.localize('Amount per point'),
+            textStopLoss: text.localize('Stop-loss'),
+            textStopProfit: text.localize('Stop-profit'),
+            textStopType: text.localize('Stop-type'),
+            textStopTypePoints: text.localize('Points'),
+            textContractConfirmationButton: text.localize('View'),
+            textIndicativeBarrierTooltip: text.localize('This is an indicative barrier. Actual barrier will be the entry spot plus the barrier offset.')
         };
 
         var starTime = document.getElementById('start_time_label');
@@ -10534,6 +10786,11 @@ function submitForm(form) {
             barrierLowSpan.textContent = localize.textLowBarrier;
         }
 
+        var predictionLabel = document.getElementById('prediction_label');
+        if(predictionLabel){
+            predictionLabel.textContent = localize.predictionLabel;
+        }
+
         var payoutOption = document.getElementById('payout_option');
         if (payoutOption) {
             payoutOption.textContent = localize.textPayout;
@@ -10557,6 +10814,46 @@ function submitForm(form) {
         var period_label = document.getElementById('period_label');
         if (period_label) {
             period_label.textContent = localize.textContractPeriod;
+        }
+
+        var amount_per_point_label = document.getElementById('amount_per_point_label');
+        if (amount_per_point_label) {
+            amount_per_point_label.textContent = localize.textAmountPerPoint;
+        }
+
+        var stop_loss_label = document.getElementById('stop_loss_label');
+        if (stop_loss_label) {
+            stop_loss_label.textContent = localize.textStopLoss;
+        }
+
+        var stop_profit_label = document.getElementById('stop_profit_label');
+        if (stop_profit_label) {
+            stop_profit_label.textContent = localize.textStopProfit;
+        }
+
+        var stop_type_label = document.getElementById('stop_type_label');
+        if (stop_type_label) {
+            stop_type_label.textContent = localize.textStopType;
+        }
+
+        var stop_type_points = document.getElementById('stop_type_points_label');
+        if (stop_type_points) {
+            stop_type_points.textContent = localize.textStopTypePoints;
+        }
+
+        var indicative_barrier_tooltip = document.getElementById('indicative_barrier_tooltip');
+        if (indicative_barrier_tooltip) {
+            indicative_barrier_tooltip.setAttribute('title', localize.textIndicativeBarrierTooltip);
+        }
+
+        var indicative_high_barrier_tooltip = document.getElementById('indicative_high_barrier_tooltip');
+        if (indicative_high_barrier_tooltip) {
+            indicative_high_barrier_tooltip.setAttribute('title', localize.textIndicativeBarrierTooltip);
+        }
+
+        var indicative_low_barrier_tooltip = document.getElementById('indicative_low_barrier_tooltip');
+        if (indicative_low_barrier_tooltip) {
+            indicative_low_barrier_tooltip.setAttribute('title', localize.textIndicativeBarrierTooltip);
         }
 
         var jpbarrier_label = document.getElementById('jbarrier_label');
@@ -10660,20 +10957,22 @@ var Contract = (function () {
                 }
 
                 var barrierObj = {};
-                if (currentObj.barriers === 1) {
-                    if (!barriers.hasOwnProperty(contractCategory)) {
-                        barrierObj['count'] = 1;
-                        barrierObj['barrier'] = currentObj['barrier'];
-                        barrierObj['barrier_category'] = currentObj['barrier_category'];
-                        barriers[formName] = barrierObj;
-                    }
-                } else if (currentObj.barriers === 2) {
-                    if (!barriers.hasOwnProperty(contractCategory)) {
-                        barrierObj['count'] = 2;
-                        barrierObj['barrier'] = currentObj['high_barrier'];
-                        barrierObj['barrier1'] = currentObj['low_barrier'];
-                        barrierObj['barrier_category'] = currentObj['barrier_category'];
-                        barriers[formName] = barrierObj;
+                if(currentObj.barrier_category && currentObj.barrier_category !== "non_financial"){
+                    if (currentObj.barriers === 1) {
+                        if (!barriers.hasOwnProperty(contractCategory)) {
+                            barrierObj['count'] = 1;
+                            barrierObj['barrier'] = currentObj['barrier'];
+                            barrierObj['barrier_category'] = currentObj['barrier_category'];
+                            barriers[formName] = barrierObj;
+                        }
+                    } else if (currentObj.barriers === 2) {
+                        if (!barriers.hasOwnProperty(contractCategory)) {
+                            barrierObj['count'] = 2;
+                            barrierObj['barrier'] = currentObj['high_barrier'];
+                            barrierObj['barrier1'] = currentObj['low_barrier'];
+                            barrierObj['barrier_category'] = currentObj['barrier_category'];
+                            barriers[formName] = barrierObj;
+                        }
                     }
                 }
 
@@ -10716,6 +11015,14 @@ var Contract = (function () {
                 }
             }
         });
+
+        if(tradeContractForms.risefall){
+            tradeContractForms['updown'] = Content.localize().textFormUpDown;
+        }
+
+        if(tradeContractForms.endsinout || tradeContractForms.staysinout){
+            tradeContractForms['inout'] = Content.localize().textFormInOut;
+        }
 
         return tradeContractForms;
     };
@@ -10828,6 +11135,7 @@ function displayDurations(startType) {
         }
     }
 
+    var duration_list = {};
     for (var duration in durationContainer) {
         if(durationContainer.hasOwnProperty(duration)) {
             var min = durationContainer[duration]['min_contract_duration'],
@@ -10842,20 +11150,20 @@ function displayDurations(startType) {
                         option.setAttribute('value', textMapping['value']);
                         option.setAttribute('data-minimum', textMapping['min']);
                         option.appendChild(content);
-                        fragment.appendChild(option);
+                        duration_list[textMapping['value']]=option;
                         option = document.createElement('option');
                         content = document.createTextNode(Content.localize().textDurationMinutes);
                         option.setAttribute('value', 'm');
                         option.setAttribute('data-minimum', 1);
                         option.setAttribute('selected', 'selected');
                         option.appendChild(content);
-                        fragment.appendChild(option);
+                        duration_list['m']=option;
                         option = document.createElement('option');
                         content = document.createTextNode(Content.localize().textDurationHours);
                         option.setAttribute('value', 'h');
                         option.setAttribute('data-minimum', 1);
                         option.appendChild(content);
-                        fragment.appendChild(option);
+                        duration_list['h']=option;
                         break;
                     case 'm':
                         option = document.createElement('option');
@@ -10864,13 +11172,13 @@ function displayDurations(startType) {
                         option.setAttribute('data-minimum', textMapping['min']);
                         option.setAttribute('selected', 'selected');
                         option.appendChild(content);
-                        fragment.appendChild(option);
+                        duration_list[textMapping['value']]=option;
                         option = document.createElement('option');
                         content = document.createTextNode(Content.localize().textDurationHours);
                         option.setAttribute('value', 'h');
                         option.setAttribute('data-minimum', 1);
                         option.appendChild(content);
-                        fragment.appendChild(option);
+                        duration_list['h']=option;
                         break;
                     case 'h':
                         option = document.createElement('option');
@@ -10878,7 +11186,7 @@ function displayDurations(startType) {
                         option.setAttribute('value', textMapping['value']);
                         option.setAttribute('data-minimum', textMapping['min']);
                         option.appendChild(content);
-                        fragment.appendChild(option);
+                        duration_list[textMapping['value']]=option;
                         break;
                     default :
                         option = document.createElement('option');
@@ -10886,7 +11194,7 @@ function displayDurations(startType) {
                         option.setAttribute('value', textMapping['value']);
                         option.setAttribute('data-minimum', textMapping['min']);
                         option.appendChild(content);
-                        fragment.appendChild(option);
+                        duration_list[textMapping['value']]=option;
                         break;
                 }
             } else if (duration === 'daily') {
@@ -10895,18 +11203,33 @@ function displayDurations(startType) {
                 option.setAttribute('value', textMapping['value']);
                 option.setAttribute('data-minimum', textMapping['min']);
                 option.appendChild(content);
-                fragment.appendChild(option);
+                duration_list[textMapping['value']]=option;
             } else if (duration === 'tick') {
                 option = document.createElement('option');
                 content = document.createTextNode(textMapping['text']);
                 option.setAttribute('value', textMapping['value']);
                 option.setAttribute('data-minimum', textMapping['min']);
                 option.appendChild(content);
-                fragment.appendChild(option);
+                duration_list[textMapping['value']]=option;
             }
-            target.appendChild(fragment);
+            
         }
     }
+    var list = Object.keys(duration_list).sort(function(a,b){
+        if(durationOrder(a)>durationOrder(b)){
+            return 1;
+        }
+        else{
+            return -1;
+        }
+    });
+    for(var k=0; k<list.length; k++){
+        var d = list[k];
+        if(duration_list.hasOwnProperty(d)){
+            target.appendChild(duration_list[d]);
+        }
+    }
+
     durationPopulate();
 }
 
@@ -11000,281 +11323,408 @@ function displayExpiryType(unit) {
     target.appendChild(fragment);
 }
 ;/*
- * attach event to market list, so when client change market we need to update undelryings
- * and request for new Contract details to populate the form and request price accordingly
+ * TradingEvents object contains all the event handler function required for
+ * websocket trading page
+ *
+ * We need it as object so that we can call TradingEvent.init() only on trading
+ * page for pjax to work else it will fire on all pages
+ *
  */
-var marketNavElement = document.getElementById('contract_markets');
-if (marketNavElement) {
-    marketNavElement.addEventListener('change', function(e) {
-        var clickedMarket = e.target;
-        sessionStorage.setItem('market', clickedMarket.value);
-
-        // as different markets have different forms so remove from sessionStorage
-        // it will default to proper one
-        sessionStorage.removeItem('formname');
-        Symbols.currentSymbol('');
-        processMarket();
-    });
-}
-
-/*
- * attach event to form list, so when client click on different form we need to update form
- * and request for new Contract details to populate the form and request price accordingly
- */
-var contractFormEventChange = function () {
+var TradingEvents = (function () {
     'use strict';
 
-    processContractForm();
-    requestTradeAnalysis();
-};
+    var initiate = function () {
+        /*
+         * attach event to market list, so when client change market we need to update undelryings
+         * and request for new Contract details to populate the form and request price accordingly
+         */
+        var marketNavElement = document.getElementById('contract_markets');
+        var onMarketChange = function(market){
+            showPriceOverlay();
+            sessionStorage.setItem('market', market);
 
-var formNavElement = document.getElementById('contract_form_name_nav');
-if (formNavElement) {
-    formNavElement.addEventListener('click', function(e) {
-        if (e.target && e.target.nodeName === 'LI') {
-            var clickedForm = e.target;
-            var isFormActive = clickedForm.classList.contains('active');
-            sessionStorage.setItem('formname', clickedForm.id);
+            // as different markets have different forms so remove from sessionStorage
+            // it will default to proper one
+            sessionStorage.removeItem('formname');
+            sessionStorage.removeItem('underlying');
+            processMarket(1);
+        };
 
-            setFormPlaceholderContent();
-            // if form is already active then no need to send same request again
-            toggleActiveNavMenuElement(formNavElement, clickedForm);
-
-            if (!isFormActive) {
-                contractFormEventChange();
-            }
-            var contractFormCheckbox = document.getElementById('contract_form_show_menu');
-            if (contractFormCheckbox) {
-                contractFormCheckbox.checked = false;
-            }
+        if (marketNavElement) {
+            marketNavElement.addEventListener('change', function(e) {
+                var clickedMarket = e.target;
+                onMarketChange(clickedMarket.value);
+            });
         }
-    });
-}
 
-/*
- * attach event to underlying change, event need to request new contract details and price
- */
-var underlyingElement = document.getElementById('underlying');
-if (underlyingElement) {
-    underlyingElement.addEventListener('change', function(e) {
-        if (e.target) {
-            var underlying = e.target.value;
-            sessionStorage.setItem('underlying', underlying);
+        /*
+         * attach event to form list, so when client click on different form we need to update form
+         * and request for new Contract details to populate the form and request price accordingly
+         */
+        var contractFormEventChange = function () {
+            processContractForm();
             requestTradeAnalysis();
+        };
 
-            Contract.getContracts(underlying);
+        var formNavElement = document.getElementById('contract_form_name_nav');
+        if (formNavElement) {
+            formNavElement.addEventListener('click', function(e) {
+                if (e.target && e.target.getAttribute('menuitem')) {
+                    var clickedForm = e.target;
+                    var isFormActive = clickedForm.classList.contains('active');
+                    sessionStorage.setItem('formname', clickedForm.getAttribute('menuitem'));
 
-            // forget the old tick id i.e. close the old tick stream
-            processForgetTickId();
-            // get ticks for current underlying
-            TradeSocket.send({ ticks : underlying });
+                    setFormPlaceholderContent();
+                    // if form is already active then no need to send same request again
+                    toggleActiveCatMenuElement(formNavElement, e.target.getAttribute('menuitem'));
+
+                    if (!isFormActive) {
+                        contractFormEventChange();
+                    }
+                    var contractFormCheckbox = document.getElementById('contract_form_show_menu');
+                    if (contractFormCheckbox) {
+                        contractFormCheckbox.checked = false;
+                    }
+                }
+            });
         }
-    });
-}
 
-/*
- * bind event to change in duration amount, request new price
- */
-var durationAmountElement = document.getElementById('duration_amount');
-if (durationAmountElement) {
-    durationAmountElement.addEventListener('input', debounce (function (e) {
-        processPriceRequest();
-        submitForm(document.getElementById('websocket_form'));
-    }));
-}
+        /*
+         * attach event to underlying change, event need to request new contract details and price
+         */
+        var underlyingElement = document.getElementById('underlying');
+        if (underlyingElement) {
+            underlyingElement.addEventListener('change', function(e) {
+                if (e.target) {
+                    showPriceOverlay();
+                    var underlying = e.target.value;
+                    sessionStorage.setItem('underlying', underlying);
+                    requestTradeAnalysis();
 
-/*
- * attach event to expiry time change, event need to populate duration
- * and request new price
- */
-var expiryTypeElement = document.getElementById('expiry_type');
-if (expiryTypeElement) {
-    expiryTypeElement.addEventListener('change', function(e) {
-        durationPopulate();
-        if(e.target && e.target.value === 'endtime') {
-            var current_moment = moment().add(5, 'minutes').utc();
-            document.getElementById('expiry_date').value = current_moment.format('YYYY-MM-DD');
-            document.getElementById('expiry_time').value = current_moment.format('HH:mm');
+                    Contract.getContracts(underlying);
+
+                    // forget the old tick id i.e. close the old tick stream
+                    processForgetTickId();
+                    // get ticks for current underlying
+                    TradeSocket.send({ ticks : underlying });
+                }
+            });
         }
-        processPriceRequest();
-    });
-}
 
-/*
- * bind event to change in duration units, populate duration and request price
- */
-var durationUnitElement = document.getElementById('duration_units');
-if (durationUnitElement) {
-    durationUnitElement.addEventListener('change', function () {
-        durationPopulate();
-        processPriceRequest();
-    });
-}
-
-/*
- * bind event to change in endtime date and time
- */
-var endDateElement = document.getElementById('expiry_date');
-if (endDateElement) {
-    endDateElement.addEventListener('change', function () {
-        processPriceRequest();
-    });
-}
-
-var endTimeElement = document.getElementById('expiry_time');
-if (endTimeElement) {
-    endTimeElement.addEventListener('change', function () {
-        processPriceRequest();
-    });
-}
-
-/*
- * attach event to change in amount, request new price only
- */
-var amountElement = document.getElementById('amount');
-if (amountElement) {
-    amountElement.addEventListener('input', debounce( function(e) {
-        sessionStorage.setItem('amount', e.target.value);
-        processPriceRequest();
-        submitForm(document.getElementById('websocket_form'));
-    }));
-}
-
-/*
- * attach event to start time, display duration based on
- * whether start time is forward starting or not and request
- * new price
- */
-var dateStartElement = document.getElementById('date_start');
-if (dateStartElement) {
-    dateStartElement.addEventListener('change', function (e) {
-        if (e.target && e.target.value === 'now') {
-            displayDurations('spot');
-        } else {
-            displayDurations('forward');
+        /*
+         * bind event to change in duration amount, request new price
+         */
+        var durationAmountElement = document.getElementById('duration_amount');
+        if (durationAmountElement) {
+            durationAmountElement.addEventListener('input', debounce (function (e) {
+                processPriceRequest();
+                submitForm(document.getElementById('websocket_form'));
+            }));
         }
-        processPriceRequest();
-    });
-}
 
-/*
- * attach event to change in amount type that is whether its
- * payout or stake and request new price
- */
-var amountTypeElement = document.getElementById('amount_type');
-if (amountTypeElement) {
-    amountTypeElement.addEventListener('change', function (e) {
-        sessionStorage.setItem('amount_type', e.target.value);
-        processPriceRequest();
-    });
-}
+        /*
+         * attach event to expiry time change, event need to populate duration
+         * and request new price
+         */
+        var expiryTypeElement = document.getElementById('expiry_type');
+        if (expiryTypeElement) {
+            expiryTypeElement.addEventListener('change', function(e) {
+                durationPopulate();
+                if(e.target && e.target.value === 'endtime') {
+                    var current_moment = moment().add(5, 'minutes').utc();
+                    document.getElementById('expiry_date').value = current_moment.format('YYYY-MM-DD');
+                    document.getElementById('expiry_time').value = current_moment.format('HH:mm');
+                }
+                processPriceRequest();
+            });
+        }
 
-/*
- * attach event to change in submarkets. We need to disable
- * underlyings that are not in selected seubmarkets
- */
-var submarketElement = document.getElementById('submarket');
-if (submarketElement) {
-    submarketElement.addEventListener('change', function (e) {
-        if (e.target) {
-            var elem = document.getElementById('underlying');
-            var underlyings = elem.children;
+        /*
+         * bind event to change in duration units, populate duration and request price
+         */
+        var durationUnitElement = document.getElementById('duration_units');
+        if (durationUnitElement) {
+            durationUnitElement.addEventListener('change', function () {
+                durationPopulate();
+                processPriceRequest();
+            });
+        }
 
-            for (var i = 0, len = underlyings.length; i < len; i++ ) {
-                if (e.target.value !== 'all' && e.target.value !== underlyings[i].className) {
-                    underlyings[i].disabled = true;
+        /*
+         * bind event to change in endtime date and time
+         */
+        var endDateElement = document.getElementById('expiry_date');
+        if (endDateElement) {
+            endDateElement.addEventListener('change', function () {
+                var input = this.value;
+                var match = input.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+                if(match){
+                    var date1 = new Date();
+                    date1.setUTCFullYear(match[1]);
+                    date1.setUTCMonth(match[2]-1);
+                    date1.setUTCDate(match[3]);
+
+                    var date2 = new Date();
+                    var diff = date1.getTime() - date2.getTime();
+                    var expiry_time = document.getElementById('expiry_time');
+                    if(diff > 24*60*60*1000){
+                        expiry_time.hide();
+                    }
+                    else{
+                        expiry_time.show();
+                    }
+                    processPriceRequest();
+                }
+            });
+        }
+
+        var endTimeElement = document.getElementById('expiry_time');
+        if (endTimeElement) {
+            endTimeElement.addEventListener('change', function () {
+                processPriceRequest();
+            });
+        }
+
+        /*
+         * attach event to change in amount, request new price only
+         */
+        var amountElement = document.getElementById('amount');
+        if (amountElement) {
+            amountElement.addEventListener('input', debounce( function(e) {
+                sessionStorage.setItem('amount', e.target.value);
+                processPriceRequest();
+                submitForm(document.getElementById('websocket_form'));
+            }));
+        }
+
+        /*
+         * attach event to start time, display duration based on
+         * whether start time is forward starting or not and request
+         * new price
+         */
+        var dateStartElement = document.getElementById('date_start');
+        if (dateStartElement) {
+            dateStartElement.addEventListener('change', function (e) {
+                if (e.target && e.target.value === 'now') {
+                    displayDurations('spot');
                 } else {
-                    underlyings[i].disabled = false;
+                    displayDurations('forward');
+                }
+                processPriceRequest();
+            });
+        }
+
+        /*
+         * attach event to change in amount type that is whether its
+         * payout or stake and request new price
+         */
+        var amountTypeElement = document.getElementById('amount_type');
+        if (amountTypeElement) {
+            amountTypeElement.addEventListener('change', function (e) {
+                sessionStorage.setItem('amount_type', e.target.value);
+                processPriceRequest();
+            });
+        }
+
+        /*
+         * attach event to change in submarkets. We need to disable
+         * underlyings that are not in selected seubmarkets
+         */
+        var submarketElement = document.getElementById('submarket');
+        if (submarketElement) {
+            submarketElement.addEventListener('change', function (e) {
+                if (e.target) {
+                    var elem = document.getElementById('underlying');
+                    var underlyings = elem.children;
+
+                    for (var i = 0, len = underlyings.length; i < len; i++ ) {
+                        if (e.target.value !== 'all' && e.target.value !== underlyings[i].className) {
+                            underlyings[i].disabled = true;
+                        } else {
+                            underlyings[i].disabled = false;
+                        }
+                    }
+
+                    // as submarket change has modified the underlying list so we need to manually
+                    // fire change event for underlying
+                    document.querySelectorAll('#underlying option:enabled')[0].selected = 'selected';
+                    var event = new Event('change');
+                    elem.dispatchEvent(event);
+                }
+            });
+        }
+
+        /*
+         * attach an event to change in currency
+         */
+        var currencyElement = document.getElementById('currency');
+        if (currencyElement) {
+            currencyElement.addEventListener('change', function (e) {
+                sessionStorage.setItem('currency', e.target.value);
+                var stopTypeDollarLabel = document.getElementById('stop_type_dollar_label');
+                if (stopTypeDollarLabel && isVisible(stopTypeDollarLabel)) {
+                    stopTypeDollarLabel.textContent = e.target.value;
+                }
+                processPriceRequest();
+            });
+        }
+
+        /*
+         * attach event to purchase buttons to buy the current contract
+         */
+        // using function expression form here as it used inside for loop
+        var purchaseContractEvent = function () {
+            var id = this.getAttribute('data-purchase-id'),
+                askPrice = this.getAttribute('data-ask-price');
+
+            var params = {buy: id, price: askPrice, passthrough:{}};
+            var ids = Price.bufferedIds();
+            if(ids[id]){
+                for(var attr in this.attributes){
+                    if(attr && this.attributes[attr] && this.attributes[attr].name){
+                        var m = this.attributes[attr].name.match(/data\-(.+)/);
+
+                        if(m && m[1] && m[1]!=="purchase-id" && m[1]!=="passthrough"){
+                            params.passthrough[m[1]] = this.attributes[attr].value;
+                        }
+                    }
+                }
+                if (id && askPrice) {
+                    TradeSocket.send(params);
+                    processForgetPriceIds();
                 }
             }
+        };
 
-            // as submarket change has modified the underlying list so we need to manually
-            // fire change event for underlying
-            document.querySelectorAll('#underlying option:enabled')[0].selected = 'selected';
-            var event = new Event('change');
-            elem.dispatchEvent(event);
+        var purchaseButtonElements = document.getElementsByClassName('purchase_button');
+        if (purchaseButtonElements) {
+            for (var j = 0, l = purchaseButtonElements.length; j < l; j++) {
+                purchaseButtonElements[j].addEventListener('click', purchaseContractEvent);
+            }
         }
-    });
-}
 
-/*
- * attach an event to change in currency
- */
-var currencyElement = document.getElementById('currency');
-if (currencyElement) {
-    currencyElement.addEventListener('change', function (e) {
-        sessionStorage.setItem('currency', e.target.value);
-        processPriceRequest();
-    });
-}
+        /*
+         * attach event to close icon for purchase container
+         */
+        var closeContainerElement = document.getElementById('close_confirmation_container');
+        if (closeContainerElement) {
+            closeContainerElement.addEventListener('click', function (e) {
+                if (e.target) {
+                    e.preventDefault();
+                    document.getElementById('contract_confirmation_container').style.display = 'none';
+                    document.getElementById('contracts_list').style.display = 'flex';
+                    processPriceRequest();
+                }
+            });
+        }
 
-/*
- * attach event to purchase buttons to buy the current contract
- */
-// using function expression form here as it used inside for loop
-var purchaseContractEvent = function () {
-    var id = this.getAttribute('data-purchase-id'),
-        askPrice = this.getAttribute('data-ask-price');
+        /*
+         * attach an event to change in barrier
+         */
+        var barrierElement = document.getElementById('barrier');
+        if (barrierElement) {
+            barrierElement.addEventListener('input', debounce( function (e) {
+                processPriceRequest();
+                submitForm(document.getElementById('websocket_form'));
+            }));
+        }
 
-    if (id && askPrice) {
-        TradeSocket.send({buy: id, price: askPrice});
-        processForgetPriceIds();
-    }
-};
+        /*
+         * attach an event to change in low barrier
+         */
+        var lowBarrierElement = document.getElementById('barrier_low');
+        if (lowBarrierElement) {
+            lowBarrierElement.addEventListener('input', debounce( function (e) {
+                processPriceRequest();
+                submitForm(document.getElementById('websocket_form'));
+            }));
+        }
 
-var purchaseButtonElements = document.getElementsByClassName('purchase_button');
-if (purchaseButtonElements) {
-    for (var i = 0, len = purchaseButtonElements.length; i < len; i++) {
-        purchaseButtonElements[i].addEventListener('click', purchaseContractEvent);
-    }
-}
+        /*
+         * attach an event to change in high barrier
+         */
+        var highBarrierElement = document.getElementById('barrier_high');
+        if (highBarrierElement) {
+            highBarrierElement.addEventListener('input', debounce( function (e) {
+                processPriceRequest();
+                submitForm(document.getElementById('websocket_form'));
+            }));
+        }
 
-/*
- * attach event to close icon for purchase container
- */
-var closeContainerElement = document.getElementById('close_confirmation_container');
-if (closeContainerElement) {
-    closeContainerElement.addEventListener('click', function (e) {
-        if (e.target) {
-            e.preventDefault();
-            document.getElementById('contract_confirmation_container').style.display = 'none';
+        /*
+         * attach an event to change in digit prediction input
+         */
+        var predictionElement = document.getElementById('prediction');
+        if (predictionElement) {
+            predictionElement.addEventListener('input', debounce( function (e) {
+                processPriceRequest();
+                submitForm(document.getElementById('websocket_form'));
+            }));
+        }
+
+        /*
+         * attach an event to change in amount per point for spreads
+         */
+        var amountPerPointElement = document.getElementById('amount_per_point');
+        if (amountPerPointElement) {
+            amountPerPointElement.addEventListener('input', debounce( function (e) {
+                processPriceRequest();
+                submitForm(document.getElementById('websocket_form'));
+            }));
+        }
+
+        /*
+         * attach an event to change in stop type for spreads
+         */
+        var stopTypeEvent = function () {
             processPriceRequest();
+        };
+
+        var stopTypeElement = document.querySelectorAll('input[name="stop_type"]');
+        if (stopTypeElement) {
+            for (var i = 0, len = stopTypeElement.length; i < len; i++) {
+                stopTypeElement[i].addEventListener('click', stopTypeEvent);
+            }
         }
-    });
-}
 
-/*
- * attach an event to change in barrier
- */
-var barrierElement = document.getElementById('barrier');
-if (barrierElement) {
-    barrierElement.addEventListener('input', debounce( function (e) {
-        processPriceRequest();
-        submitForm(document.getElementById('websocket_form'));
-    }));
-}
+        /*
+         * attach an event to change in stop loss input value
+         */
+        var stopLossElement = document.getElementById('stop_loss');
+        if (stopLossElement) {
+            stopLossElement.addEventListener('input', debounce( function (e) {
+                processPriceRequest();
+                submitForm(document.getElementById('websocket_form'));
+            }));
+        }
 
-/*
- * attach an event to change in low barrier
- */
-var lowBarrierElement = document.getElementById('barrier_low');
-if (lowBarrierElement) {
-    lowBarrierElement.addEventListener('input', debounce( function (e) {
-        processPriceRequest();
-        submitForm(document.getElementById('websocket_form'));
-    }));
-}
+        /*
+         * attach an event to change in stop profit input value
+         */
+        var stopProfitElement = document.getElementById('stop_profit');
+        if (stopProfitElement) {
+            stopProfitElement.addEventListener('input', debounce( function (e) {
+                processPriceRequest();
+                submitForm(document.getElementById('websocket_form'));
+            }));
+        }
 
-/*
- * attach an event to change in high barrier
- */
-var highBarrierElement = document.getElementById('barrier_high');
-if (highBarrierElement) {
-    highBarrierElement.addEventListener('input', debounce( function (e) {
-        processPriceRequest();
-        submitForm(document.getElementById('websocket_form'));
-    }));
-}
+        var init_logo = document.getElementById('trading_init_progress');
+        if(init_logo){
+            init_logo.addEventListener('click', debounce( function (e) {
+                sessionStorage.removeItem('market');
+                sessionStorage.removeItem('formname');
+                sessionStorage.removeItem('underlying');
+                location.reload();
+            }));
+        }
+    };
+
+    return {
+        init: initiate
+    };
+})();
+
 ;/*
  * This Message object process the response from server and fire
  * events based on type of response
@@ -11287,26 +11737,25 @@ var Message = (function () {
         if (response) {
             var type = response.msg_type;
             if (type === 'authorize') {
+                User.set(response.authorize);
                 TradeSocket.send({ payout_currencies: 1 });
             } else if (type === 'active_symbols') {
-                sessionStorage.setItem('active_symbols', msg.data);
-                processActiveSymbols();
+                processActiveSymbols(response);
             } else if (type === 'contracts_for') {
                 processContract(response);
             } else if (type === 'payout_currencies') {
                 sessionStorage.setItem('currencies', msg.data);
                 displayCurrencies();
             } else if (type === 'proposal') {
-                hideOverlayContainer();
-                Price.display(response, Contract.contractType()[Contract.form()]);
-                hideLoadingOverlay();
+                processProposal(response);
             } else if (type === 'buy') {
                 Purchase.display(response);
             } else if (type === 'tick') {
                 processTick(response);
             }
 
-            if(type !== 'tick' && type !== 'proposal'){
+            // if(type !== 'tick' && type !== 'proposal'){
+            if(type !== 'tick'){
                 console.log(response);
             }
         } else {
@@ -11336,7 +11785,9 @@ var Price = (function () {
     'use strict';
 
     var typeDisplayIdMapping = {},
-        bufferedIds = {};
+        bufferedIds = {},
+        bufferRequests = {},
+        form_id = 0;
 
     var createProposal = function (typeOfContract) {
         var proposal = {proposal: 1}, underlying = document.getElementById('underlying'),
@@ -11353,20 +11804,29 @@ var Price = (function () {
             endTime = document.getElementById('expiry_time'),
             barrier = document.getElementById('barrier'),
             highBarrier = document.getElementById('barrier_high'),
-            lowBarrier = document.getElementById('barrier_low');
+            lowBarrier = document.getElementById('barrier_low'),
+            prediction = document.getElementById('prediction'),
+            amountPerPoint = document.getElementById('amount_per_point'),
+            stopType = document.querySelector('input[name="stop_type"]:checked'),
+            stopLoss = document.getElementById('stop_loss'),
+            stopProfit = document.getElementById('stop_profit');
 
-        if (payout && payout.value) {
-            proposal['amount_val'] = payout.value;
+        if (payout && isVisible(payout) && payout.value) {
+            proposal['amount'] = parseFloat(payout.value);
         }
-        if (amountType && amountType.value) {
+
+        if (amountType && isVisible(amountType) && amountType.value) {
             proposal['basis'] = amountType.value;
         }
+
         if (contractType) {
             proposal['contract_type'] = typeOfContract;
         }
+
         if (currency && currency.value) {
             proposal['currency'] = currency.value;
         }
+
         if (underlying && underlying.value) {
             proposal['symbol'] = underlying.value;
         }
@@ -11375,11 +11835,16 @@ var Price = (function () {
             proposal['date_start'] = startTime.value;
         }
 
-        if (expiryType && expiryType.value === 'duration') {
-            proposal['duration'] = duration.value;
+        if (expiryType && isVisible(expiryType) && expiryType.value === 'duration') {
+            proposal['duration'] = parseInt(duration.value);
             proposal['duration_unit'] = durationUnit.value;
-        } else if (expiryType && expiryType.value === 'endtime') {
-            proposal['date_expiry'] = moment.utc(endDate.value + " " + endTime.value).unix();
+        } else if (expiryType && isVisible(expiryType) && expiryType.value === 'endtime') {
+            var endDate2 = endDate.value;
+            var endTime2 = endTime.value;
+            if(!isVisible(endTime)){
+                endTime2="00:00:00";
+            }
+            proposal['date_expiry'] = moment.utc(endDate2 + " " + endTime2).unix();
         }
 
         if (barrier && isVisible(barrier) && barrier.value) {
@@ -11394,6 +11859,32 @@ var Price = (function () {
             proposal['barrier2'] = lowBarrier.value;
         }
 
+        if(prediction && isVisible(prediction)){
+            proposal['barrier'] = parseInt(prediction.value);
+        }
+
+        if (amountPerPoint && isVisible(amountPerPoint)) {
+            proposal['amount_per_point'] = parseFloat(amountPerPoint.value);
+        }
+
+        if (stopType && isVisible(stopType)) {
+            proposal['stop_type'] = stopType.value;
+        }
+
+        if (stopLoss && isVisible(stopLoss)) {
+            proposal['stop_loss'] = parseFloat(stopLoss.value);
+        }
+
+        if (stopProfit && isVisible(stopProfit)) {
+            proposal['stop_profit'] = parseFloat(stopProfit.value);
+        }
+
+        if (contractType) {
+            proposal['contract_type'] = typeOfContract;
+        }
+
+        proposal['passthrough'] = {form_id:form_id};
+
         return proposal;
     };
 
@@ -11401,12 +11892,7 @@ var Price = (function () {
         var proposal = details['proposal'];
         var params = details['echo_req'],
             id = proposal['id'],
-            type = params['contract_type'] || typeDisplayIdMapping[id],
-            h4 = document.createElement('h4'),
-            row = document.createElement('div'),
-            para = document.createElement('p'),
-            description = row.cloneNode(),
-            fragment = document.createDocumentFragment();
+            type = params['contract_type'] || typeDisplayIdMapping[id];
 
         if (params && Object.getOwnPropertyNames(params).length > 0) {
             typeDisplayIdMapping[id] = type;
@@ -11414,101 +11900,60 @@ var Price = (function () {
             if (!bufferedIds.hasOwnProperty(id)) {
                 bufferedIds[id] = moment().utc().unix();
             }
+
+            if (!bufferRequests.hasOwnProperty(id)) {
+                bufferRequests[id] = params;
+            }
         }
 
-        var position = contractTypeDisplayMapping(type),
-            container = document.getElementById('price_description_' + position),
-            description_container = document.getElementById('description_container_' + position),
-            purchase = document.getElementById('contract_purchase_' + position),
-            box = document.getElementById('price_container_' + position),
-            amount = document.createElement('div'),
-            currency = document.getElementById('currency');
+        var position = contractTypeDisplayMapping(type);
+        var container = document.getElementById('price_container_'+position);
+
+        var h4 = container.getElementsByClassName('contract_heading')[0],
+            amount = container.getElementsByClassName('contract_amount')[0],
+            purchase = container.getElementsByClassName('purchase_button')[0],
+            description = container.getElementsByClassName('contract_description')[0],
+            comment = container.getElementsByClassName('price_comment')[0],
+            error = container.getElementsByClassName('contract_error')[0];
 
         var display = type ? (contractType ? contractType[type] : '') : '';
-
-        while (description_container && description_container.firstChild) {
-            description_container.removeChild(description_container.firstChild);
-        }
-
         if (display) {
             h4.setAttribute('class', 'contract_heading ' + display.toLowerCase().replace(/ /g, '_'));
+            h4.textContent = display;
         }
 
-        h4.setAttribute('id', 'contract_heading_' + position);
-
-        description.setAttribute('class', 'contract_description big-col');
-        description.setAttribute('id', 'contract_description_' + position);
-        row.setAttribute('class', 'row');
-
-        var content = document.createTextNode(display);
-        h4.appendChild(content);
-        fragment.appendChild(h4);
-
-        var span = document.createElement('span');
         if (proposal['ask_price']) {
-            amount.setAttribute('class', 'contract_amount col');
-            span.setAttribute('id', 'contract_amount_' + position);
-            content = document.createTextNode(currency.value + ' ' + proposal['ask_price']);
-            span.appendChild(content);
-            amount.appendChild(span);
+            amount.textContent = document.getElementById('currency').value + ' ' + proposal['ask_price'];
         }
 
         if (proposal['longcode']) {
-            content = document.createTextNode(proposal['longcode']);
-            description.appendChild(content);
-            row.appendChild(amount);
+            proposal['longcode'] = proposal['longcode'].replace(/\d+\.\d\d/,function(x){return '<b>'+x+'</b>';});
+            description.innerHTML = proposal['longcode'];
         }
 
-        if (!document.getElementById('websocket_form').checkValidity()) {
-            if (box) {
-                box.style.display = 'none';
-            }
-            processForgetPriceIds();
+        if (details['error']){
+            purchase.hide();
+            comment.hide();
+            error.show();
+            error.textContent = details['error'].message;
         }
-
-        if (document.getElementById('websocket_form').checkValidity()) {
-            if (box) {
-                box.style.display = 'block';
-            }
-        }
-
-        if (details['error']) {
-            if (purchase) {
-                purchase.style.display = 'none';
-            }
-            row.appendChild(description);
-            fragment.appendChild(row);
-            content = document.createTextNode(details['error']['message']);
-            para.appendChild(content);
-            para.setAttribute('class', 'notice-msg');
-            fragment.appendChild(para);
-        } else {
-            displayCommentPrice('price_comment_' + position, currency.value, proposal['ask_price'], proposal['payout']);
-
-            var priceId = document.getElementById('purchase_button_' + position);
-
-            if (purchase) {
-                purchase.style.display = 'block';
-            }
-            var oldprice = priceId.getAttribute('data-ask-price');
+        else{
+            purchase.show();
+            comment.show();
+            error.hide();
+            displayCommentPrice(comment, document.getElementById('currency').value, proposal['ask_price'], proposal['payout']);
+            var oldprice = purchase.getAttribute('data-ask-price');
             if (oldprice) {
-                displayPriceMovement(span, oldprice, proposal['ask_price']);
+                displayPriceMovement(amount, oldprice, proposal['ask_price']);
             }
-
-            // create unique id object that is send in response
-            priceId.setAttribute('data-purchase-id', id);
-            priceId.setAttribute('data-ask-price', proposal['ask_price']);
-
-            row.appendChild(amount);
-            row.appendChild(description);
-            fragment.appendChild(row);
-        }
-
-        if (description_container) {
-            description_container.appendChild(fragment);
-        }
-        if (container) {
-            container.insertBefore(description_container, purchase);
+            purchase.setAttribute('data-purchase-id', id);
+            purchase.setAttribute('data-ask-price', proposal['ask_price']);
+            purchase.setAttribute('data-symbol', id);
+            for(var key in bufferRequests[id]){
+                if(key && key !== 'proposal'){
+                    purchase.setAttribute('data-'+key, bufferRequests[id][key]);
+                }
+            }
         }
     };
 
@@ -11516,12 +11961,21 @@ var Price = (function () {
         typeDisplayIdMapping = {};
     };
 
+    var clearBuffer = function () {
+        bufferedIds = {};
+        form_id = 0;
+    };
+
     return {
         proposal: createProposal,
         display: display,
         clearMapping: clearMapping,
         idDisplayMapping: function () { return typeDisplayIdMapping; },
-        bufferedIds: function () { return bufferedIds; }
+        bufferedIds: function () { return bufferedIds; },
+        bufferRequests: function () { return bufferRequests; },
+        getFormId: function(){ return form_id; },
+        incrFormId: function(){ form_id++; },
+        clearBufferIds: clearBuffer
     };
 
 })();
@@ -11529,24 +11983,23 @@ var Price = (function () {
  * This function process the active symbols to get markets
  * and underlying list
  */
-function processActiveSymbols() {
+function processActiveSymbols(data) {
     'use strict';
 
     // populate the Symbols object
-    Symbols.details(JSON.parse(sessionStorage.getItem('active_symbols')));
+    Symbols.details(data);
 
     var market = getDefaultMarket();
 
     // store the market
     sessionStorage.setItem('market', market);
 
-    displayOptions('contract_markets', Symbols.markets(), market);
+    displayMarkets('contract_markets', Symbols.markets(), market);
     processMarket();
     setTimeout(function(){
         if(TradeSocket.socket().readyState === 1){
             var underlying = document.getElementById('underlying').value;
-            Symbols.currentSymbol(underlying);
-            Symbols.getSymbols();
+            Symbols.getSymbols(0);
         }
     }, 60*1000);
 }
@@ -11555,15 +12008,21 @@ function processActiveSymbols() {
 /*
  * Function to call when market has changed
  */
-function processMarket() {
+function processMarket(flag) {
     'use strict';
 
     // we can get market from sessionStorage as allowed market
     // is already set when this function is called
     var market = sessionStorage.getItem('market');
-    displayUnderlyings('underlying', Symbols.underlyings()[market], Symbols.currentSymbol());
+    var symbol = sessionStorage.getItem('underlying');
+    var update_page = Symbols.need_page_update() || flag;
 
-    if(!Symbols.currentSymbol()){
+    if(update_page && (!symbol || !Symbols.underlyings()[market][symbol] || !Symbols.underlyings()[market][symbol].is_active)){
+        symbol = undefined;
+    }
+    displayUnderlyings('underlying', Symbols.underlyings()[market], symbol);
+
+    if(update_page){
         processMarketUnderlying();
     }
 }
@@ -11595,15 +12054,23 @@ function processContract(contracts) {
 
     Contract.setContracts(contracts);
 
-    var contract_categories = getAllowedContractCategory(Contract.contractForms());
+    var contract_categories = Contract.contractForms();
     var formname;
     if(sessionStorage.getItem('formname') && contract_categories[sessionStorage.getItem('formname')]){
         formname = sessionStorage.getItem('formname');
     }
     else{
-        formname = Object.keys(contract_categories).sort(compareContractCategory)[0];
+        var tree = getContractCategoryTree(contract_categories);
+        if(tree[0]){
+            if(typeof tree[0] === 'object'){
+                formname = tree[0][1][0];
+            }
+            else{
+                formname = tree[0];
+            }
+        }
     }
-    
+
     // set form to session storage
     sessionStorage.setItem('formname', formname);
 
@@ -11622,7 +12089,48 @@ function processContractForm() {
 
     displayDurations();
 
+    displayPrediction();
+
+    displaySpreads();
+
     processPriceRequest();
+}
+
+function displayPrediction() {
+    var predictionElement = document.getElementById('prediction_row');
+    if(sessionStorage.getItem('formname') === 'digits'){
+        predictionElement.show();
+    }
+    else{
+        predictionElement.hide();
+    }
+}
+
+function displaySpreads() {
+    var amountType = document.getElementById('amount_type'),
+        amountPerPointLabel = document.getElementById('amount_per_point_label'),
+        amount = document.getElementById('amount'),
+        amountPerPoint = document.getElementById('amount_per_point'),
+        spreadContainer = document.getElementById('spread_element_container'),
+        stopTypeDollarLabel = document.getElementById('stop_type_dollar_label'),
+        expiryTypeRow = document.getElementById('expiry_row');
+
+    if(sessionStorage.getItem('formname') === 'spreads'){
+        amountType.hide();
+        amount.hide();
+        expiryTypeRow.hide();
+        amountPerPointLabel.show();
+        amountPerPoint.show();
+        spreadContainer.show();
+        stopTypeDollarLabel.textContent = document.getElementById('currency').value;
+    } else {
+        amountPerPointLabel.hide();
+        amountPerPoint.hide();
+        spreadContainer.hide();
+        expiryTypeRow.show();
+        amountType.show();
+        amount.show();
+    }
 }
 
 /*
@@ -11631,13 +12139,19 @@ function processContractForm() {
 function processForgetPriceIds() {
     'use strict';
     if (Price) {
-        var priceIds = Price.bufferedIds();
-        for (var id in priceIds) {
-            if (priceIds.hasOwnProperty(id)) {
+        showPriceOverlay();
+        var price_data = Price.bufferRequests();
+        var form_id = Price.getFormId();
+        var price_id = Price.bufferedIds();
+
+        for (var id in price_data) {
+            if(price_data[id] && price_data[id].passthrough.form_id!==form_id){
                 TradeSocket.send({ forget: id });
-                delete priceIds[id];
+                delete price_data[id];
+                delete price_id[id];
             }
         }
+
         Price.clearMapping();
     }
 }
@@ -11649,8 +12163,9 @@ function processForgetPriceIds() {
 function processPriceRequest() {
     'use strict';
 
+    Price.incrFormId();
     processForgetPriceIds();
-    showLoadingOverlay();
+    showPriceOverlay(); 
     for (var typeOfContract in Contract.contractType()[Contract.form()]) {
         if(Contract.contractType()[Contract.form()].hasOwnProperty(typeOfContract)) {
             TradeSocket.send(Price.proposal(typeOfContract));
@@ -11682,9 +12197,27 @@ function processTick(tick) {
     'use strict';
     Tick.details(tick);
     Tick.display();
+    WSTickDisplay.updateChart(tick);
+    Purchase.update_spot_list(tick);
     if (!Barriers.isBarrierUpdated()) {
         Barriers.display();
         Barriers.setBarrierUpdate(true);
+    }
+}
+
+function processProposal(response){
+    'use strict';
+    var price_data = Price.bufferRequests();
+    var form_id = Price.getFormId();
+    // This is crazy condition but there is no way
+    if((!price_data[response.proposal.id] && response.echo_req.hasOwnProperty('passthrough') && response.echo_req.passthrough.hasOwnProperty('form_id') && response.echo_req.passthrough.form_id === form_id) || (price_data[response.proposal.id] && price_data[response.proposal.id].passthrough.form_id === Price.form_id)){
+        hideOverlayContainer();
+        Price.display(response, Contract.contractType()[Contract.form()]);
+        hidePriceOverlay();
+        if(form_id===1){
+            document.getElementById('trading_socket_container').classList.add('show');
+            document.getElementById('trading_init_progress').style.display = 'none';
+        }
     }
 }
 ;/*
@@ -11695,61 +12228,170 @@ function processTick(tick) {
 var Purchase = (function () {
     'use strict';
 
+    var purchase_data = {};
+    BetSell.register();
+
     var display = function (details) {
+        purchase_data = details;
+
         var receipt = details['buy'],
+            passthrough = details['echo_req']['passthrough'],
             container = document.getElementById('contract_confirmation_container'),
-            message_container = document.getElementById('confirmation_message_container'),
-            fragment = document.createDocumentFragment(),
-            h3 = document.createElement('h3'),
-            message = document.createElement('p'),
-            content = '';
-
-        while (message_container && message_container.firstChild) {
-            message_container.removeChild(message_container.firstChild);
-        }
-
-        h3.setAttribute('class', 'contract_purchase_heading');
+            message_container = document.getElementById('confirmation_message'),
+            heading = document.getElementById('contract_purchase_heading'),
+            descr = document.getElementById('contract_purchase_descr'),
+            reference = document.getElementById('contract_purchase_reference'),
+            chart = document.getElementById('tick_chart'),
+            balance = document.getElementById('contract_purchase_balance'),
+            payout = document.getElementById('contract_purchase_payout'),
+            cost = document.getElementById('contract_purchase_cost'),
+            profit = document.getElementById('contract_purchase_profit'),
+            spots = document.getElementById('contract_purchase_spots'),
+            confirmation_error = document.getElementById('confirmation_error'),
+            contracts_list = document.getElementById('contracts_list'),
+            button = document.getElementById('contract_purchase_button');
 
         var error = details['error'];
+        var show_chart = !error && passthrough['duration']<=10 && passthrough['duration_unit']==='t' && (sessionStorage.formname === 'risefall' || sessionStorage.formname === 'higherlower');
+
+        container.style.display = 'block';
+        contracts_list.style.display = 'none';
+
         if (error) {
-            content = document.createTextNode(error['message']);
-            message.appendChild(content);
-            fragment.appendChild(message);
+            message_container.hide();
+            confirmation_error.show();
+            confirmation_error.textContent = error['message'];
         } else {
-            var txnInfo = document.createElement('div');
+            message_container.show();
+            confirmation_error.hide();
 
-            content = document.createTextNode(Content.localize().textContractConfirmationHeading);
-            h3.appendChild(content);
-            txnInfo.appendChild(h3);
+            heading.textContent = Content.localize().textContractConfirmationHeading;
+            descr.textContent = receipt['longcode'];
+            reference.textContent = Content.localize().textContractConfirmationReference + ' ' + receipt['fmb_id'];
 
-            content = document.createTextNode(receipt['longcode']);
-            message.appendChild(content);
-            txnInfo.appendChild(message);
+            var payout_value, cost_value, profit_value;
 
-            content = document.createTextNode(Content.localize().textContractConfirmationReference + ' ' + receipt['trx_id']);
-            message = document.createElement('p');
-            message.appendChild(content);
-            txnInfo.appendChild(message);
+            if(passthrough['basis'] === "payout"){
+                payout_value = passthrough['amount'];
+                cost_value = passthrough['ask-price'];
+            }
+            else{
+                cost_value = passthrough['amount'];
+                var match = receipt['longcode'].match(/\d+\.\d\d/);
+                payout_value = match[0];
+            }
+            profit_value = Math.round((payout_value - cost_value)*100)/100;
 
-            content = document.createTextNode(Content.localize().textContractConfirmationBalance + ' ' + receipt['balance_after']);
-            message = document.createElement('p');
-            message.appendChild(content);
-            txnInfo.appendChild(message);
+            payout.innerHTML = Content.localize().textContractConfirmationPayout + ' <p>' + payout_value + '</p>';
+            cost.innerHTML = Content.localize().textContractConfirmationCost + ' <p>' + cost_value + '</p>';
+            profit.innerHTML = Content.localize().textContractConfirmationProfit + ' <p>' + profit_value + '</p>';
 
-            fragment.appendChild(txnInfo);
+
+            balance.textContent = Content.localize().textContractConfirmationBalance + ' ' + User.get().currency + ' ' + Math.round(receipt['balance_after']*100)/100;
+
+            if(show_chart){
+                chart.show();
+            }
+            else{
+                chart.hide();
+            }
+
+            if(sessionStorage.formname === 'digits'){
+                spots.textContent = '';
+                spots.show();
+            }
+            else{
+                spots.hide();
+            }
+
+            button.textContent = Content.localize().textContractConfirmationButton;
+            var purchase_date = new Date(receipt['purchase_time']*1000);
+            var button_attrs = {
+                contract_id: receipt['fmb_id'],
+                controller_action: 'sell',
+                currency: document.getElementById('currency').value,
+                payout: payout_value,
+                purchase_price: cost_value,
+                purchase_time: (purchase_date.getUTCFullYear()+'-'+(purchase_date.getUTCMonth()+1)+'-'+purchase_date.getUTCDate()+' '+purchase_date.getUTCHours()+':'+purchase_date.getUTCMinutes()+':'+purchase_date.getUTCSeconds()),
+                qty:1,
+                shortcode:receipt['shortcode'],
+                url:'https://'+window.location.host+'/trade/analyse_contract?l=EN'
+            };
+            for(var k in button_attrs){
+                if(k){
+                    button.setAttribute(k,button_attrs[k]);
+                }
+            }
         }
 
-        if (message_container) {
-            message_container.appendChild(fragment);
+        if(show_chart){
+            WSTickDisplay.initialize({
+                "symbol":passthrough.symbol,
+                "number_of_ticks":passthrough.duration,
+                "previous_tick_epoch":receipt['start_time'],
+                "contract_category":"callput",
+
+                "display_symbol":Symbols.getName(passthrough.symbol),
+                "contract_start":receipt['start_time'],
+                "decimal":3,
+                "contract_sentiment":(passthrough['contract_type']==='CALL' ? 'up' : 'down'),
+                "price":passthrough['ask-price'],
+                "payout":passthrough['amount'],
+                "show_contract_result":1
+            });
         }
-        if (container) {
-            container.style.display = 'block';
-            container.insertBefore(message_container, document.getElementById('confirmation_message_endelement'));
+    };
+
+    var update_spot_list = function(data){
+        var spots = document.getElementById('contract_purchase_spots');
+        if(isVisible(spots) && purchase_data.echo_req.passthrough['duration'] && data.tick.epoch && data.tick.epoch > purchase_data.buy.start_time){
+            var fragment = document.createElement('div');
+            fragment.classList.add('row');
+
+            var el1 = document.createElement('div');
+            el1.classList.add('col');
+            el1.textContent = 'Tick '+ (spots.getElementsByClassName('row').length+1);
+            fragment.appendChild(el1);
+
+            var el2 = document.createElement('div');
+            el2.classList.add('col');
+            var date = new Date(data.tick.epoch*1000);
+            var hours = date.getUTCHours() < 10 ? '0'+date.getUTCHours() : date.getUTCHours();
+            var minutes = date.getUTCMinutes() < 10 ? '0'+date.getUTCMinutes() : date.getUTCMinutes();
+            var seconds = date.getUTCSeconds() < 10 ? '0'+date.getUTCSeconds() : date.getUTCSeconds();
+            el2.textContent = hours+':'+minutes+':'+seconds;
+            fragment.appendChild(el2);
+
+            var d1;
+            var tick = data.tick.quote.replace(/\d$/,function(d){d1 = d; return '<b>'+d+'</b>';});
+            var el3 = document.createElement('div');
+            el3.classList.add('col');
+            el3.innerHTML = tick;
+            fragment.appendChild(el3);
+
+            spots.appendChild(fragment);
+            spots.scrollTop = spots.scrollHeight;
+            
+            if(d1 && purchase_data.echo_req.passthrough['duration']===1){
+                var contract_status;
+                if(d1==purchase_data.echo_req.passthrough['barrier']){
+                    spots.className = 'won';
+                    contract_status = 'This contract won';
+                }
+                else{
+                    spots.className = 'lost';
+                    contract_status = 'This contract lost';
+                }
+                document.getElementById('contract_purchase_heading').textContent = text.localize(contract_status);
+            }
+
+            purchase_data.echo_req.passthrough['duration']--;
         }
     };
 
     return {
         display: display,
+        update_spot_list: update_spot_list
     };
 
 })();
@@ -11812,6 +12454,10 @@ var TradeSocket = (function () {
         };
 
         tradeSocket.onclose = function (e) {
+            // clear buffer ids of price and ticks as connection is closed
+            Price.clearMapping();
+            Price.clearBufferIds();
+            Tick.clearBufferIds();
             console.log('socket closed', e);
         };
 
@@ -11935,51 +12581,73 @@ function displayStartDates() {
 var Symbols = (function () {
     'use strict';
 
-    var tradeMarkets = {}, tradeUnderlyings = {}, current = '';
+    var tradeMarkets = {}, tradeMarketsList = {}, tradeUnderlyings = {}, current = '', need_page_update = 1, names = {};
 
     var details = function (data) {
         var allSymbols = data['active_symbols'];
 
         allSymbols.forEach(function (element) {
             var currentMarket = element['market'],
+                currentSubMarket = element['submarket'],
                 currentUnderlying = element['symbol'];
 
-            if (!tradeMarkets.hasOwnProperty(currentMarket)) {
-                tradeMarkets[currentMarket] = element['market_display_name'];
+            var is_active = !element['is_trading_suspended'] && element['exchange_is_open'];
+
+            if(!tradeMarkets[currentMarket]){
+                tradeMarkets[currentMarket] = {name:element['market_display_name'],is_active:0,submarkets:{}};
             }
+            if(!tradeMarkets[currentMarket]['submarkets'][currentSubMarket]){
+                tradeMarkets[currentMarket]['submarkets'][currentSubMarket] = {name: element['submarket_display_name'],is_active:0};
+            }
+
+            if(is_active){
+                tradeMarkets[currentMarket]['is_active'] = 1;
+                tradeMarkets[currentMarket]['submarkets'][currentSubMarket]['is_active'] = 1;
+            }
+
+            tradeMarketsList[currentMarket] = tradeMarkets[currentMarket];
+            tradeMarketsList[currentSubMarket] = tradeMarkets[currentMarket]['submarkets'][currentSubMarket];
 
             if (!tradeUnderlyings.hasOwnProperty(currentMarket)) {
                 tradeUnderlyings[currentMarket] = {};
             }
 
+            if (!tradeUnderlyings.hasOwnProperty(currentSubMarket)) {
+                tradeUnderlyings[currentSubMarket] = {};
+            }
+
             if (!tradeUnderlyings[currentMarket].hasOwnProperty(currentUnderlying)) {
                 tradeUnderlyings[currentMarket][currentUnderlying] = {
-                    is_active: (!element['is_trading_suspended'] && element['exchange_is_open']),
+                    is_active: is_active,
                     display: element['display_name']
                 };
             }
+
+            if (!tradeUnderlyings[currentSubMarket].hasOwnProperty(currentUnderlying)) {
+                tradeUnderlyings[currentSubMarket][currentUnderlying] = {
+                    is_active: is_active,
+                    display: element['display_name']
+                };
+            }
+
+            names[currentUnderlying]=element['display_name'];
         });
     };
 
-    var getSymbols = function () {
+    var getSymbols = function (update) {
         TradeSocket.send({
             active_symbols: "brief"
         });
-    };
-
-    var currentSymbol = function(symbol){
-        if(typeof symbol !== 'undefined'){
-            current = symbol;
-        }
-        return current;
+        need_page_update = update;
     };
 
     return {
         details: details,
         getSymbols: getSymbols,
-        markets: function () { return tradeMarkets; },
+        markets: function (list) { return list ? tradeMarketsList : tradeMarkets; },
         underlyings: function () { return tradeUnderlyings; },
-        currentSymbol: currentSymbol
+        getName: function(symbol){ return names[symbol]; },
+        need_page_update: function () { return need_page_update; }
     };
 
 })();
@@ -12035,8 +12703,20 @@ var Tick = (function () {
         } else {
             message = quote;
         }
-        displayPriceMovement(spotElement, spotElement.textContent, message);
+
+        if(parseFloat(message) != message){
+            spotElement.className = 'error';
+        } else{
+            spotElement.classList.remove('error');
+            displayPriceMovement(spotElement, spotElement.textContent, message);
+            displayIndicativeBarrier();
+        }
+
         spotElement.textContent = message;
+    };
+
+    var clearBuffer = function () {
+        bufferedIds = {};
     };
 
     return {
@@ -12046,10 +12726,64 @@ var Tick = (function () {
         id: function () { return id; },
         epoch: function () { return epoch; },
         errorMessage: function () { return errorMessage; },
-        bufferedIds: function () { return bufferedIds; }
+        bufferedIds: function () { return bufferedIds; },
+        clearBufferIds: clearBuffer
     };
 })();
-;RealityCheck = (function ($) {
+;var WSTickDisplay = Object.create(TickDisplay);
+WSTickDisplay.plot = function(plot_from, plot_to){
+    var $self = this;
+    $self.contract_start_moment = moment($self.contract_start_ms).utc();
+    $self.counter = 0;
+    $self.applicable_ticks = [];
+};
+WSTickDisplay.update_ui = function(final_price, pnl, contract_status) {
+    var $self = this;
+    $('#contract_purchase_heading').text(text.localize(contract_status));
+};
+WSTickDisplay.updateChart = function(data){
+
+    var $self = this;
+
+    var chart = document.getElementById('tick_chart');
+    if(!chart || !isVisible(chart) || !data || !data.tick){
+        return;
+    }
+
+    var tick = {
+        epoch: parseInt(data.tick.epoch),
+        quote: parseFloat(data.tick.quote)
+    };
+
+    if (tick.epoch > $self.contract_start_moment.unix()) {
+        if ($self.applicable_ticks.length >= $self.ticks_needed) {
+            $self.evaluate_contract_outcome();
+            return;
+        } else {
+            if (!$self.chart) return;
+            if (!$self.chart.series) return;
+            $self.chart.series[0].addPoint([$self.counter, tick.quote], true, false);
+            $self.applicable_ticks.push(tick);
+            var indicator_key = '_' + $self.counter;
+            if (typeof $self.x_indicators[indicator_key] !== 'undefined') {
+                $self.x_indicators[indicator_key]['index'] = $self.counter;
+                $self.add($self.x_indicators[indicator_key]);
+            }
+
+            $self.add_barrier();
+            $self.apply_chart_background_color(tick);
+            $self.counter++;
+        }
+    }           
+};
+
+;var User = (function () {
+    var data = {};
+    return {
+        set: function(a){ data = a; },
+        get: function(){ return data; }
+    };
+})();;RealityCheck = (function ($) {
     "use strict";
 
     var reality_check_url = page.url.url_for('user/reality_check');
@@ -12983,6 +13717,8 @@ function attach_tabs(element) {
 	    if(Periods){
 	    	Periods.displayPeriods();
 	    }
+
+	    displayPrediction();
 	    
 	    processPriceRequest();
 	};

@@ -141,11 +141,13 @@ pjax_config_page('chart_application', function () {
 pjax_config_page('trading', function () {
     return {
         onLoad: function () {
+            TradingEvents.init();
             Content.populate();
             TradeSocket.init();
-            Symbols.currentSymbol('');
-            Symbols.getSymbols();
-            addEventListenerForm();
+            Symbols.getSymbols(1);
+            if (document.getElementById('websocket_form')) {
+                addEventListenerForm();
+            }
         },
         onUnload: function() {
             TradeSocket.close();

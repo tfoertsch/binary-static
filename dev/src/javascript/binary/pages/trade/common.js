@@ -2,41 +2,170 @@
  * This contains common functions we need for processing the response
  */
 
+ Element.prototype.hide = function(){
+     this.style.display = 'none';
+ };
+
+ Element.prototype.show = function(){
+     this.style.display = '';
+ };
+
 /*
  * function to display contract form as element of ul
  */
-function displayContractForms(id, elements, selected) {
-    'use strict';
-    var target = document.getElementById(id),
-        fragment = document.createDocumentFragment(),
-        len = elements.length;
+ function displayContractForms(id, elements, selected) {
+     'use strict';
+     var target = document.getElementById(id),
+         fragment = document.createDocumentFragment(),
+         len = elements.length;
 
-    while (target && target.firstChild) {
-        target.removeChild(target.firstChild);
-    }
+     target.innerHTML = '';
 
-    if (elements) {
-        var keys = Object.keys(elements).sort(compareContractCategory);
-        keys.forEach(function (key) {
-            if (elements.hasOwnProperty(key)) {
-                var li = document.createElement('li'),
-                    content = document.createTextNode(elements[key]);
-                li.setAttribute('id', key.toLowerCase());
-                if (selected && selected === key) {
-                    li.setAttribute('class', 'active');
+     if (elements) {
+         var tree = getContractCategoryTree(elements);
+         for(var i=0;i<tree.length;i++){
+             var el1 = tree[i];
+             var li = document.createElement('li');
+
+             li.classList.add('tm-li');
+             if(i===0){
+                 li.classList.add('first');
+             }
+             else if(i===tree.length-1){
+                 li.classList.add('last');
+             }
+
+             if(typeof el1 === 'object'){
+                 var fragment2 = document.createDocumentFragment();
+                 var flag = 0;
+                 var first = '';
+                 for(var j=0; j<el1[1].length; j++){
+                     var el2 = el1[1][j];
+                     var li2 = document.createElement('li'),
+                         a2 = document.createElement('a'),
+                         content2 = document.createTextNode(elements[el2]);
+                     li2.classList.add('tm-li-2');
+
+                     if(j===0){
+                        first = el2.toLowerCase();
+                        li2.classList.add('first');
+                     }
+                     else if(j===el1[1].length-1){
+                         li2.classList.add('last');
+                     }
+
+                     var span_class = '';
+                     if (selected && selected === el2.toLowerCase()) {
+                         li2.classList.add('active');
+                         a2.classList.add('a-active');
+                         flag = 1;
+                     }
+                     
+                     a2.classList.add('tm-a-2');
+                     a2.appendChild(content2);
+                     a2.setAttribute('menuitem',el2.toLowerCase());
+                     a2.setAttribute('id', el2.toLowerCase());
+
+                     li2.appendChild(a2);
+
+                     fragment2.appendChild(li2);
+                 }
+                 if(fragment2.hasChildNodes()){
+                     var ul = document.createElement('ul'),
+                         a = document.createElement('a'),
+                         content = document.createTextNode(elements[el1[0]]);
+
+                     a.appendChild(content);
+                     a.setAttribute('class', 'tm-a');
+                     a.setAttribute('menuitem',first);
+                     ul.appendChild(fragment2);
+                     ul.setAttribute('class', 'tm-ul-2');
+
+                     if(flag){
+                        li.classList.add('active');
+                     }
+
+                     li.appendChild(a);
+                     li.appendChild(ul);
+                 }
+             }
+             else{
+                 var content3 = document.createTextNode(elements[el1]),
+                     a3 = document.createElement('a');
+
+                 if (selected && selected === el1.toLowerCase()) {
+                     a3.classList.add('a-active');
+                     li.classList.add('active');
+                 }
+                 a3.appendChild(content3);
+                 a3.classList.add('tm-a');
+                 a3.setAttribute('menuitem',el1);
+                 a3.setAttribute('id', el1.toLowerCase());
+                 li.appendChild(a3);
+             }
+             fragment.appendChild(li);
+         }
+         if (target) {
+             target.appendChild(fragment);
+             var list = target.getElementsByClassName('tm-li');
+             for(var k=0; k < list.length; k++){
+                 var li4 = list[k];
+                 li4.addEventListener("mouseover", function(){
+                     this.classList.add('hover');
+                 });
+                 li4.addEventListener("mouseout", function(){
+                     this.classList.remove('hover');
+                 });
+             }
+         }
+     }
+ }
+
+
+ function displayMarkets(id, elements, selected) {
+     'use strict';
+     var target= document.getElementById(id),
+         fragment =  document.createDocumentFragment();
+
+     while (target && target.firstChild) {
+         target.removeChild(target.firstChild);
+     }
+
+     for (var key in elements) {
+         if (elements.hasOwnProperty(key)){
+             var option = document.createElement('option'), content = document.createTextNode(elements[key].name);
+             option.setAttribute('value', key);
+             if (selected && selected === key) {
+                 option.setAttribute('selected', 'selected');
+             }
+             if(!elements[key].is_active){
+                option.setAttribute('disabled', '');
+             }
+             option.appendChild(content);
+             fragment.appendChild(option);
+
+             if(elements[key].submarkets && Object.keys(elements[key].submarkets).length){
+                for(var key2 in elements[key].submarkets){
+                    if(key2){
+                        option = document.createElement('option');
+                        option.setAttribute('value', key2);
+                        if (selected && selected === key2) {
+                            option.setAttribute('selected', 'selected');
+                        }
+                        if(!elements[key].submarkets[key2].is_active){
+                           option.setAttribute('disabled', '');
+                        }
+                        option.textContent = '\xA0\xA0\xA0\xA0'+elements[key].submarkets[key2].name;
+                        fragment.appendChild(option);
+                    }
                 }
-                li.appendChild(content);
-                fragment.appendChild(li);
-            }
-        });
-
-        if (target) {
-            target.appendChild(fragment);
-        }
-    }
-}
-
-
+             }
+         }
+     }
+     if (target) {
+         target.appendChild(fragment);
+     }
+ }
 /*
  * function to create `option` and append to select box with id `id`
  */
@@ -196,6 +325,22 @@ function showLoadingOverlay() {
     }
 }
 
+function showPriceOverlay() {
+    'use strict';
+    var elm = document.getElementById('loading_container2');
+    if (elm) {
+        elm.style.display = 'block';
+    }
+}
+
+function hidePriceOverlay() {
+    'use strict';
+    var elm = document.getElementById('loading_container2');
+    if (elm) {
+        elm.style.display = 'none';
+    }
+}
+
 /*
  * function to hide contract confirmation overlay container
  */
@@ -204,6 +349,10 @@ function hideOverlayContainer() {
     var elm = document.getElementById('contract_confirmation_container');
     if (elm) {
         elm.style.display = 'none';
+    }
+    var elm2 = document.getElementById('contracts_list');
+    if (elm2) {
+        elm2.style.display = 'flex';
     }
 }
 
@@ -228,28 +377,41 @@ function compareMarkets(a, b) {
     return 0;
 }
 
-/*
- * function to assign sorting to contract category
- */
-function compareContractCategory(a, b) {
-    var sortedContractCategory = {
-        'risefall': 0,
-        'higherlower': 1,
-        'touchnotouch': 2,
-        'endsinout': 3,
-        'staysinout': 4,
-        'asian': 5,
-        'digits': 6,
-        'spreads': 7
-    };
+function getContractCategoryTree(elements){
 
-    if (sortedContractCategory[a.toLowerCase()] < sortedContractCategory[b.toLowerCase()]) {
-        return -1;
+    var tree = [
+        ['updown',
+            ['risefall',
+            'higherlower']
+        ],
+        'touchnotouch',
+        ['inout',
+            ['endsinout',
+            'staysinout']
+        ],
+        'asian',
+        'digits',
+        'spreads'
+    ];
+
+    if(elements){
+        tree = tree.map(function(e){
+            if(typeof e === 'object'){
+                e[1] = e[1].filter(function(e1){
+                    return elements[e1];
+                });
+                if(!e[1].length){
+                    e = '';
+                }
+            }
+            else if(!elements[e]){
+                e = '';
+            }
+            return e;
+        });
+        tree = tree.filter(function(v){ return v.length; });   
     }
-    if (sortedContractCategory[a.toLowerCase()] > sortedContractCategory[b.toLowerCase()]) {
-        return 1;
-    }
-    return 0;
+    return tree;
 }
 
 /*
@@ -290,6 +452,30 @@ function toggleActiveNavMenuElement(nav, eventElement) {
     }
 }
 
+function toggleActiveCatMenuElement(nav, eventElementId) {
+    var eventElement = document.getElementById(eventElementId);
+    var liElements = nav.querySelectorAll('.active, .a-active');
+    var classes = eventElement.classList;
+
+    if (!classes.contains('active')) {
+        for (var i = 0, len = liElements.length; i < len; i++){
+            liElements[i].classList.remove('active');
+            liElements[i].classList.remove('a-active');
+        }
+        classes.add('a-active');
+
+        i = 0;
+        var parent;
+        while((parent = eventElement.parentElement) && parent.id !== nav.id && i < 10){
+            if(parent.tagName === 'LI'){
+                parent.classList.add('active');
+            }
+            eventElement = parent;
+            i++;
+        }
+    }
+}
+
 /*
  * function to set placeholder text based on current form, used for mobile menu
  */
@@ -304,46 +490,21 @@ function setFormPlaceholderContent(name) {
 /*
  * function to display the profit and return of bet under each trade container
  */
-function displayCommentPrice(id, currency, type, payout) {
+function displayCommentPrice(node, currency, type, payout) {
     'use strict';
 
-    var div = document.getElementById(id);
-
-    while (div && div.firstChild) {
-        div.removeChild(div.firstChild);
-    }
-
-    if (div && type && payout) {
+    if (node && type && payout) {
         var profit = payout - type,
             return_percent = (profit/type)*100,
-            comment = document.createTextNode(Content.localize().textNetProfit + ': ' + currency + ' ' + profit.toFixed(2) + ' | ' + Content.localize().textReturn + ' ' + return_percent.toFixed(0) + '%');
+            comment = Content.localize().textNetProfit + ': ' + currency + ' ' + profit.toFixed(2) + ' | ' + Content.localize().textReturn + ' ' + return_percent.toFixed(0) + '%';
 
         if (isNaN(profit) || isNaN(return_percent)) {
-            div.style.display = 'none';
+            node.hide();
         } else {
-            div.style.display = 'block';
-            div.appendChild(comment);
+            node.show();
+            node.textContent = comment;
         }
     }
-}
-
-/*
- * This function loops through the available contracts and markets
- * that are not supposed to be shown are replaced
- *
- * this is TEMPORARY, it will be removed when we fix backend
- */
-function getAllowedContractCategory(contracts) {
-    'use strict';
-    var obj = {};
-    for(var key in contracts) {
-        if (contracts.hasOwnProperty(key)) {
-            if (!(/digits/i.test(contracts[key])) && !(/spreads/i.test(contracts[key]))) {
-                obj[key] = contracts[key];
-            }
-        }
-    }
-    return obj;
 }
 
 /*
@@ -375,16 +536,10 @@ function debounce(func, wait, immediate) {
  * function to check if selected market is allowed for current user
  */
 function getDefaultMarket() {
-   var mkt = sessionStorage.getItem('market') || 'forex';
-   if (getCookieItem('loginid')) {
-       var allowedMarkets = getCookieItem('allowed_markets');
-       var re = new RegExp(mkt, 'i');
-       if (!re.test(allowedMarkets)) {
-           var arr = allowedMarkets.replace(/\"/g, "");
-           arr = arr.split(",");
-           arr.sort(compareMarkets);
-           return arr[0];
-       }
+   var mkt = sessionStorage.getItem('market');
+   var markets = Symbols.markets(1);
+   if(!mkt ||  !markets[mkt]){
+        mkt = Object.keys(markets)[0];
    }
    return mkt;
 }
@@ -404,9 +559,55 @@ function addEventListenerForm(){
  * this creates a button, clicks it, and destroys it to invoke the listener
  */
 function submitForm(form) {
-    var button = form.ownerDocument.createElement('input');
-    button.style.display = 'none';
-    button.type = 'submit';
-    form.appendChild(button).click();
-    form.removeChild(button);
+    // var button = form.ownerDocument.createElement('input');
+    // button.style.display = 'none';
+    // button.type = 'submit';
+    // form.appendChild(button).click();
+    // form.removeChild(button);
+}
+
+/*
+ * function to display indicative barrier
+ */
+function displayIndicativeBarrier() {
+    var unit = document.getElementById('duration_units'),
+        currentTick = Tick.quote(),
+        indicativeBarrierTooltip = document.getElementById('indicative_barrier_tooltip'),
+        indicativeHighBarrierTooltip = document.getElementById('indicative_high_barrier_tooltip'),
+        indicativeLowBarrierTooltip = document.getElementById('indicative_low_barrier_tooltip'),
+        barrierElement = document.getElementById('barrier'),
+        highBarrierElement = document.getElementById('barrier_high'),
+        lowBarrierElement = document.getElementById('barrier_low');
+
+    if (unit && unit.value !== 'd' && currentTick) {
+        if (indicativeBarrierTooltip && isVisible(indicativeBarrierTooltip)) {
+            indicativeBarrierTooltip.textContent = (parseFloat(currentTick) + parseFloat(barrierElement.value)).toFixed(3);
+        }
+
+        if (indicativeHighBarrierTooltip && isVisible(indicativeHighBarrierTooltip)) {
+            indicativeHighBarrierTooltip.textContent = (parseFloat(currentTick) + parseFloat(highBarrierElement.value)).toFixed(3);
+        }
+
+        if (indicativeLowBarrierTooltip && isVisible(indicativeLowBarrierTooltip)) {
+            indicativeLowBarrierTooltip.textContent = (parseFloat(currentTick) + parseFloat(lowBarrierElement.value)).toFixed(3);
+        }
+    } else {
+        indicativeBarrierTooltip.textContent = '';
+        indicativeHighBarrierTooltip.textContent = '';
+        indicativeLowBarrierTooltip.textContent = '';
+    }
+}
+
+/*
+ * function to sort the duration in ascending order
+ */
+function durationOrder(duration){
+    var order = {
+        t:1,
+        s:2,
+        m:3,
+        h:4,
+        d:5
+    };
+    return order[duration];
 }

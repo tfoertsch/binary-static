@@ -15,7 +15,7 @@
             %a{:href => "#power-and-simplicity"}= l('Power & simplicity')
           %li#sidebar-link-section-5
             %a{:href => "#security"}= l('Security')
-          %li#sidebar-link-section-6
+          %li#sidebar-link-section-6.ja-hide
             %a{:href => "#trust"}= l('Trust')
         .open-account{:class => 'by_client_type client_logged_out client_virtual'}
           %a.pjaxload{:href => url_for('/')}= l('Open a free account')
@@ -102,7 +102,7 @@
                 %li= l('We segregate and hold client funds in secure AAA-rated banks.')
                 %li= l('We are fully licensed in the British Isles and Malta.')
                 %li= l('We have a proven track record since starting in 2000.')
-            .grd-grid-4.grd-grid-mobile-12.grd-parent
+            .grd-grid-4.grd-grid-mobile-12.grd-parent.ja-hide
               .grd-grid-11.grd-grid-mobile-8.grd-with-padding.grd-centered
                 %img.responsive{:src => url_for('images/pages/why-us/mga-logo.svg')}
               .grd-parent.grd-grid-12.grd-grid-mobile-8.grd-centered
@@ -110,7 +110,7 @@
                   %img.responsive{:src => url_for('images/pages/why-us/why-us-proven-record_1.svg')}
                 .grd-grid-6.grd-with-padding
                   %img.responsive{:src => url_for('images/pages/footer/isle-of-man.png')}
-      .section
+      .section.ja-hide
         %a#trust
         .section-content
           #section-6

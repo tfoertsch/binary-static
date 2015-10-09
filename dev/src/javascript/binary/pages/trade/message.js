@@ -10,26 +10,25 @@ var Message = (function () {
         if (response) {
             var type = response.msg_type;
             if (type === 'authorize') {
+                User.set(response.authorize);
                 TradeSocket.send({ payout_currencies: 1 });
             } else if (type === 'active_symbols') {
-                sessionStorage.setItem('active_symbols', msg.data);
-                processActiveSymbols();
+                processActiveSymbols(response);
             } else if (type === 'contracts_for') {
                 processContract(response);
             } else if (type === 'payout_currencies') {
                 sessionStorage.setItem('currencies', msg.data);
                 displayCurrencies();
             } else if (type === 'proposal') {
-                hideOverlayContainer();
-                Price.display(response, Contract.contractType()[Contract.form()]);
-                hideLoadingOverlay();
+                processProposal(response);
             } else if (type === 'buy') {
                 Purchase.display(response);
             } else if (type === 'tick') {
                 processTick(response);
             }
 
-            if(type !== 'tick' && type !== 'proposal'){
+            // if(type !== 'tick' && type !== 'proposal'){
+            if(type !== 'tick'){
                 console.log(response);
             }
         } else {

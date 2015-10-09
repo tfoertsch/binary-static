@@ -395,13 +395,17 @@ var BetPrice = function() {
                                             quote: data[i][2]
                                         };
                                         if (tick.epoch > start_moment.unix() && $self.digit_tick_count < how_many_ticks) {
+                                            // checking for duplicate entries and skip them if they exists
+                                            if ($self.applicable_ticks.length > 0) {
+                                                var previous_tick_epoch = $self.info_for_display[$self.info_for_display.length-1][1];
+                                                if (previous_tick_epoch === tick.epoch) {
+                                                    continue;
+                                                }
+                                            }
+
                                             $self.applicable_ticks.push(tick.quote);
                                             $self.digit_tick_count++;
                                             $self.info_for_display.push([$self.digit_tick_count,tick.epoch,tick.quote]);
-                                            var last_digit = tick.quote.toString().substr(-1);
-                                            if (!$('#digit-current').hasClass('flipper')) {
-                                                $('#digit-current').addClass('flipper focus');
-                                            }
                                             $self.update_display();
 
                                             if ($('#digit-contract-details').css('display') === 'none') {
@@ -446,6 +450,10 @@ var BetPrice = function() {
                     var last_digit = parseInt(last_tick.toString().substr(-1));
                     var potential_payout = parseFloat($('#outcome-payout').data('payout').toString().replace(',',''));
                     var cost = parseFloat($('#outcome-buyprice').data('buyprice').toString().replace(',',''));
+
+                    // buy price
+                    $('#contract-outcome-buyprice').text($('#outcome-buyprice').data('buyprice'));
+
                     var final_price;
 
                     if (prediction === 'match') {

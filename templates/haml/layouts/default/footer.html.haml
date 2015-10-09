@@ -56,17 +56,17 @@
                   %a.pjaxload{:href=>url_for("/terms-and-conditions")}= l('Terms and Conditions')
                 %li.hidden.ja-show-block
                   %a.pjaxload{:href=>url_for("/terms-and-conditions-jp")}= l('Terms and Conditions')
-                %li
+                %li.ja-hide
                   %a.pjaxload{:href=>url_for("/terms-and-conditions#privacy-tab")}= l('Security and Privacy')
+                %li.hidden.ja-show-block
+                  %a.pjaxload{:href=>url_for("/terms-and-conditions-jp?selected_tab=privacy-tab")}= l('Security and Privacy')
                 %li.ja-hide
                   %a.pjaxload{:href=>url_for("responsible-trading")}= l('Responsible Trading')
-                %li
+                %li.ja-hide
                   %a.pjaxload{:href=>url_for("/terms-and-conditions?selected_tab=complaints-disputes-tac-tab")}= l('Complaints and Disputes')
         .grd-grid-4
           %h1= l('Market Data')
           %ul
-            %li.ja-hide
-              %a.pjaxload{:href=>url_for("/charting/application")}= l('Chart Application')
             %li
               %a.pjaxload{:href=>url_for("/charting/livechart")}= l('Live Charts')
             %li.ja-hide
@@ -79,7 +79,7 @@
                   %img.responsive#iom_icon_footer{:src => url_for('images/pages/footer/partner-icon.svg')}
   #footer-regulatory.ja-top-padding
     .grd-container.grd-default-container
-      .grd-parent.grd-grid-12.ja-hide
+      .grd-parent.grd-grid-12.regulatory-logo
         .grd-grid-2.center
           %a{:href => "http://www.gov.im/gambling/", :target => "_blank"}
             %img.responsive#iom_icon_footer{:src => url_for('images/pages/footer/isle-of-man.png')}

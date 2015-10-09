@@ -14,7 +14,7 @@
     .grd-grid-12
       %h2
         %a.pjaxload{:href => url_for('trade.cgi?market=forex&form_name=risefall')}= l('Up / Down')
-      %p= l('Choose Rise/Fall when you want to profit from the market rising or falling from its current level.')
+      %p.ja-hide= l('Choose Rise/Fall when you want to profit from the market rising or falling from its current level.')
       %p= l('Choose Higher/Lower when you want to profit from the market ending higher or lower than a price target.')
       %ol
         %li= l('Choose the market, the time period, and how much you wish to win.')

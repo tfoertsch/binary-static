@@ -50,8 +50,20 @@ var Tick = (function () {
         } else {
             message = quote;
         }
-        displayPriceMovement(spotElement, spotElement.textContent, message);
+
+        if(parseFloat(message) != message){
+            spotElement.className = 'error';
+        } else{
+            spotElement.classList.remove('error');
+            displayPriceMovement(spotElement, spotElement.textContent, message);
+            displayIndicativeBarrier();
+        }
+
         spotElement.textContent = message;
+    };
+
+    var clearBuffer = function () {
+        bufferedIds = {};
     };
 
     return {
@@ -61,6 +73,7 @@ var Tick = (function () {
         id: function () { return id; },
         epoch: function () { return epoch; },
         errorMessage: function () { return errorMessage; },
-        bufferedIds: function () { return bufferedIds; }
+        bufferedIds: function () { return bufferedIds; },
+        clearBufferIds: clearBuffer
     };
 })();
