@@ -60,8 +60,7 @@ RealityCheck = (function ($) {
             url: url,
             dataType: 'text',
             success: function (data) {
-                this = that;
-                next();
+                next.apply(that, data);
             },
             error: function (xhr) {
                 if (xhr.status === 404) return; // no MF loginid
