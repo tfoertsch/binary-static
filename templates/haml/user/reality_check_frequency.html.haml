@@ -6,8 +6,10 @@
   %p= l('Please specify your preferred reality-check interval')
 
   %p
-    %label= l('minutes')
+    %label= l('in minutes')
     %input{:type => 'text' :interval => 1}
+
+  %p.msg{:style => 'display:none; color:red;'}= l('Please enter a number greater than 0');
 
 %div#reality-check-nav
   %span.button

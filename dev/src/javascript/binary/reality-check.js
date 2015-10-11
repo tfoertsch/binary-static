@@ -4,9 +4,6 @@ RealityCheck = (function ($) {
     var reality_check_url = page.url.url_for('user/reality_check');
     var reality_freq_url  = page.url.url_for('user/reality_check_frequency');
 
-    console.log(reality_check_url);
-    console.log(reality_freq_url);
-
     function RealityCheck(cookieName, persistentStore, logoutLocation) {
         var val;
         
@@ -122,7 +119,7 @@ RealityCheck = (function ($) {
     };
 
     RealityCheck.prototype.displayFrequencyChoice = function (data) {
-        var that = this, outer, middle, storage_handler; 
+        var that = this, outer, middle, storage_handler, click_handler; 
 
         outer = $('#reality-check');
         if (outer) outer.remove();
@@ -130,6 +127,7 @@ RealityCheck = (function ($) {
         outer = $("<div id='reality-check' class='lightbox'></div>").appendTo('body');
         middle = $('<div />').appendTo(outer);
         $('<div>' + data + '</div>').appendTo(middle);
+        $('#reality-check [interval=1]').val(this.interval / (60 * 1000));
 
         storage_handler = function (jq_event) {
             var ack;
@@ -147,11 +145,20 @@ RealityCheck = (function ($) {
         $(window).on('storage', storage_handler);
 
         this.lastAck = parseInt(this.storage.get('reality_check.ack') || 1);
-        $('#reality-check [bcont=1]').on('click', function () {
+        click_handler = function () {
+            var intv = parseInt($('#reality-check [interval=1]').val());
+            if (intv <= 0) {
+                $('#reality-check p.msg').show('fast');
+                return;
+            }
+            that.interval = intv * 60 * 1000;
             that.storage.set('reality_check.ack', that.lastAck+1);
             $(window).off('storage', storage_handler);
             $('#reality-check').remove();
-        });
+            that.setAlarm();
+        };
+        $('#reality-check [bcont=1]').on('click', click_handler);
+        $('#reality-check [interval=1]').on('change', click_handler);
     };
 
     return RealityCheck;
