@@ -12839,14 +12839,15 @@ WSTickDisplay.updateChart = function(data){
         }, alrm);
     };
 
-    RealityCheck.prototype._fire = function () {
+    RealityCheck.prototype._fire = function (url, next) {
         var that = this;
 
         $.ajax({
-            url: reality_check_url,
+            url: url,
             dataType: 'text',
             success: function (data) {
-                that.display(data);
+                this = that;
+                next();
             },
             error: function (xhr) {
                 if (xhr.status === 404) return; // no MF loginid
