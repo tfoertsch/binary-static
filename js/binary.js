@@ -12790,6 +12790,9 @@ WSTickDisplay.updateChart = function(data){
     var reality_check_url = page.url.url_for('user/reality_check');
     var reality_freq_url  = page.url.url_for('user/reality_check_frequency');
 
+    console.log(reality_check_url);
+    console.log(reality_freq_url);
+
     function RealityCheck(cookieName, persistentStore, logoutLocation) {
         var val;
         
