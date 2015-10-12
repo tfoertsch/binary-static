@@ -1,5 +1,4 @@
 %div#reality-check-content
-  %h1= l('Reality Check')
   - my @tm = gmtime $login_time;
   - my $time = time;
   - my $dur = $time - $login_time;
@@ -7,7 +6,8 @@
   - my $hours = int($dur / 3600); $dur = $dur % 3600;
   - my $minutes = int($dur / 60);
   - my @curtm = gmtime $time;
-  %div
+  %div.dual-col
+    %h1= l('Reality Check')
     %p
       %label= l('Login time:')
       = sprintf('%04d-%02d-%02d %02d:%02d:%02d GMT', $tm[5]+1900, $tm[4]+1, @tm[3,2,1,0])
