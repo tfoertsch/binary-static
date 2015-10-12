@@ -20,6 +20,7 @@
     %p
       %label= l('Reality Check Interval:')
       %input{:type => 'text' :interval => 1 :size => '6'}
+      %span= l('minutes')
   %p= l('Your trading statistics ' . ($mode eq 'login' ? 'since login' : 'for the recent 48 hours') . ' for [_1]', join( ', ', map {$_->[0]} @$summary))
   %table
     %tr
