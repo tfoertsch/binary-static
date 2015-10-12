@@ -7,15 +7,19 @@
   - my $hours = int($dur / 3600); $dur = $dur % 3600;
   - my $minutes = int($dur / 60);
   - my @curtm = gmtime $time;
-  %p
-    %label= l('Login time:')
-    = sprintf('%04d-%02d-%02d %02d:%02d:%02d GMT', $tm[5]+1900, $tm[4]+1, @tm[3,2,1,0])
-  %p
-    %label= l('Current time:')
-    = sprintf('%04d-%02d-%02d %02d:%02d:%02d GMT', $curtm[5]+1900, $curtm[4]+1, @curtm[3,2,1,0])
-  %p
-    %label= l('Session duration:')
-    = l('[_1] [plural,_1,day,days] [_2] [plural,_2,hour,hours] [_3] [plural,_3,minute,minutes]', $days, $hours, $minutes)
+  %div
+    %p
+      %label= l('Login time:')
+      = sprintf('%04d-%02d-%02d %02d:%02d:%02d GMT', $tm[5]+1900, $tm[4]+1, @tm[3,2,1,0])
+    %p
+      %label= l('Current time:')
+      = sprintf('%04d-%02d-%02d %02d:%02d:%02d GMT', $curtm[5]+1900, $curtm[4]+1, @curtm[3,2,1,0])
+    %p
+      %label= l('Session duration:')
+      = l('[_1] [plural,_1,day,days] [_2] [plural,_2,hour,hours] [_3] [plural,_3,minute,minutes]', $days, $hours, $minutes)
+    %p
+      %label= l('Reality Check Interval:')
+      %input{:type => 'text' :interval => 1 :size => '6'}
   %p= l('Your trading statistics ' . ($mode eq 'login' ? 'since login' : 'for the recent 48 hours') . ' for [_1]', join( ', ', map {$_->[0]} @$summary))
   %table
     %tr
