@@ -12790,6 +12790,28 @@ WSTickDisplay.updateChart = function(data){
     var reality_check_url = page.url.url_for('user/reality_check');
     var reality_freq_url  = page.url.url_for('user/reality_check_frequency');
 
+    RealityCheck.prototype.setInterval = function (intv) {
+        this.interval = intv * 60 * 1000; // convert minutes to millisec
+        this.storage.set('reality_check.interval', this.interval);
+    };
+
+    RealityCheck.prototype.getInterval = function () {
+        return this.getIntervalMs() / (60 * 1000); // convert to minutes
+        
+    };
+
+    RealityCheck.prototype.getIntervalMs = function () {
+        var val;
+
+        if (this.interval > 0) return this.interval;
+
+        val = parseInt(this.storage.get('reality_check.interval'));
+
+        if (isNaN(val) || val<=0) return;
+
+        return this.interval = val;
+    };
+
     function RealityCheck(cookieName, persistentStore, logoutLocation) {
         var val;
         
@@ -12800,6 +12822,9 @@ WSTickDisplay.updateChart = function(data){
         val[0] = parseInt(val[0]);
         if (isNaN(val[0]) || val[0]<=0) return;  // no or invalid cookie
 
+        this.logoutLocation = logoutLocation;
+        if (!this.logoutLocation) return; // not logged in?
+
         // The cookie is formatted as DEFAULT_INTERVAL , SERVER_TIME_WHEN_IT_WAS_ISSUED
         // We save the server time in local storage. If the stored time differs from
         // the cookie time we are in a new session. Hence, we have to reset all stored
@@ -12809,12 +12834,10 @@ WSTickDisplay.updateChart = function(data){
             persistentStore.set('reality_check.srvtime', val[1]);
             persistentStore.set('reality_check.basetime', (new Date()).getTime());
             persistentStore.set('reality_check.ack', 1);
+            this.askForFrequency();
         }
 
-        this.logoutLocation = logoutLocation;
-        if (!this.logoutLocation) return; // not logged in?
-
-        this.interval = parseInt(val) * 60 * 1000; // convert minutes to millisec
+        if (this.getIntervalMs() === undefined) this.setInterval(parseInt(val)[0]);
 
         this.basetime = persistentStore.get('reality_check.basetime');
 
@@ -12937,7 +12960,7 @@ WSTickDisplay.updateChart = function(data){
                 $('#reality-check p.msg').show('fast');
                 return;
             }
-            that.interval = intv * 60 * 1000;
+            that.setInterval(intv);
             that.storage.set('reality_check.ack', that.lastAck+1);
             $(window).off('storage', storage_handler);
             $('#reality-check').remove();
@@ -12955,6 +12978,7 @@ onLoad.queue(function () {
     if (!logoutBtn) return;
     if (window.reality_check_object) return;
     window.reality_check_object = new RealityCheck('reality_check', LocalStore, logoutBtn.getAttribute('href'));
+    window.reality_check_object.askForFrequency();
 });
 ;//////////////////////////////////////////////////////////////////
 // Purpose: Write loading image to a container for ajax request
