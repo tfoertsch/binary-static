@@ -1358,7 +1358,7 @@ ul.checked li {
   margin-left: auto;
   margin-right: auto;
   padding: .5em .5em;
-  width: 46em;
+  width: 44em;
   text-align: center;
   background-color: #fff;
   border-radius: .3em;
@@ -1374,22 +1374,6 @@ ul.checked li {
 #reality-check-content label, #balances-content label {
   display: inline-block;
   width: 10em;
-}
-#reality-check-content div.dual-col, #balances-content div.dual-col {
-  -webkit-column-count: 2;
-  -moz-column-count: 2;
-  column-count: 2;
-  -webkit-column-gap: 40px;
-  -moz-column-gap: 40px;
-  column-gap: 40px;
-  -webkit-column-rule: 1px dotted lightblue;
-  -moz-column-rule: 1px dotted lightblue;
-  column-rule: 1px dotted lightblue;
-}
-#reality-check-content div.dual-col h1, #balances-content div.dual-col h1 {
-  -webkit-column-span: all;
-  -moz-column-span: all;
-  column-span: all;
 }
 
 #reality-check-nav, #balances-nav {
