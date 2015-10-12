@@ -12890,6 +12890,7 @@ WSTickDisplay.updateChart = function(data){
         outer = $("<div id='reality-check' class='lightbox'></div>").appendTo('body');
         middle = $('<div />').appendTo(outer);
         $('<div>' + data + '</div>').appendTo(middle);
+        $('#reality-check [interval=1]').val(this.getInterval());
 
         storage_handler = function (jq_event) {
             var ack;
@@ -12936,7 +12937,7 @@ WSTickDisplay.updateChart = function(data){
         outer = $("<div id='reality-check' class='lightbox'></div>").appendTo('body');
         middle = $('<div />').appendTo(outer);
         $('<div>' + data + '</div>').appendTo(middle);
-        $('#reality-check [interval=1]').val(this.interval / (60 * 1000));
+        $('#reality-check [interval=1]').val(this.getInterval());
 
         storage_handler = function (jq_event) {
             var ack;
