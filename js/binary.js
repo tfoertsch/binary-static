@@ -12837,7 +12837,7 @@ WSTickDisplay.updateChart = function(data){
             this.askForFrequency();
         }
 
-        if (this.getIntervalMs() === undefined) this.setInterval(parseInt(val)[0]);
+        if (this.getIntervalMs() === undefined) this.setInterval(val[0]);
 
         this.basetime = persistentStore.get('reality_check.basetime');
 
