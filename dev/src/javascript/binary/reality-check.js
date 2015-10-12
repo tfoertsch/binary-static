@@ -192,5 +192,4 @@ onLoad.queue(function () {
     if (!logoutBtn) return;
     if (window.reality_check_object) return;
     window.reality_check_object = new RealityCheck('reality_check', LocalStore, logoutBtn.getAttribute('href'));
-    window.reality_check_object.askForFrequency();
 });
