@@ -216,7 +216,7 @@ RealityCheck = (function ($) {
             }
 
             console.log('set interval handler: intv = '+intv);
-            that.storage.removeItem('reality_check.askingForInterval');
+            that.storage.remove('reality_check.askingForInterval');
 
             that.setInterval(intv);
             that.storage.set('reality_check.ack', that.lastAck+1);

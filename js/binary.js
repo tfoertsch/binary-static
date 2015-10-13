@@ -3154,18 +3154,6 @@ $(function() { onLoad.fire(); });
 ;// json to hold all the events loaded on trading page
 var trade_event_bindings = {};
 
-function contract_guide_popup() {
-    $('#bet_guide_content').on('click', 'a.bet_demo_link', function (e){
-        e.preventDefault();
-        var ip = new InPagePopup();
-        ip.ajax_conf = { url: this.href, data: 'ajax_only=1' };
-        ip.fetch_remote_content(true, '', function (data) {
-            attach_tabs('#contract_demo_container');
-            return data;
-        });
-    });
-}
-
 var trading_times_init = function() {
       var tabset_name = "#trading-tabs";
 
@@ -3244,7 +3232,6 @@ function get_login_page_url() {
     return 'https://' + page.settings.get('domains')['private'] + '/login' + params;
 }
 
-onLoad.queue_for_url(contract_guide_popup, 'contract_guide');
 onLoad.queue_for_url(trading_times_init, 'trading_times');
 onLoad.queue_for_url(asset_index_init, 'asset_index');
 onLoad.queue_for_url(confirm_popup_action, 'my_account|confirm_popup');
@@ -10006,7 +9993,8 @@ var Barriers = (function () {
                     currentTick = Tick.quote(),
                     indicativeBarrierTooltip = document.getElementById('indicative_barrier_tooltip'),
                     indicativeHighBarrierTooltip = document.getElementById('indicative_high_barrier_tooltip'),
-                    indicativeLowBarrierTooltip = document.getElementById('indicative_low_barrier_tooltip');
+                    indicativeLowBarrierTooltip = document.getElementById('indicative_low_barrier_tooltip'),
+                    decimalPlaces = countDecimalPlaces(currentTick);
 
                 if (barrier.count === 1) {
                     document.getElementById('high_barrier_row').style.display = 'none';
@@ -10016,9 +10004,14 @@ var Barriers = (function () {
                     var elm = document.getElementById('barrier'),
                         tooltip = document.getElementById('barrier_tooltip'),
                         span = document.getElementById('barrier_span');
-                    if (unit && unit.value === 'd' && currentTick) {
-                        elm.value = (parseFloat(currentTick) + parseFloat(barrier['barrier'])).toFixed(3);
-                        elm.textContent = (parseFloat(currentTick) + parseFloat(barrier['barrier'])).toFixed(3);
+                    if (unit && unit.value === 'd') {
+                        if (currentTick && !isNaN(currentTick)) {
+                            elm.value = (parseFloat(currentTick) + parseFloat(barrier['barrier'])).toFixed(decimalPlaces);
+                            elm.textContent = (parseFloat(currentTick) + parseFloat(barrier['barrier'])).toFixed(decimalPlaces);
+                        } else {
+                            elm.value = parseFloat(barrier['barrier']);
+                            elm.textContent = parseFloat(barrier['barrier']);
+                        }
                         tooltip.style.display = 'none';
                         span.style.display = 'inherit';
                         // no need to display indicative barrier in case of absolute barrier
@@ -10028,7 +10021,11 @@ var Barriers = (function () {
                         elm.textContent = barrier['barrier'];
                         span.style.display = 'none';
                         tooltip.style.display = 'inherit';
-                        indicativeBarrierTooltip.textContent = (parseFloat(currentTick) + parseFloat(barrier['barrier'])).toFixed(3);
+                        if (currentTick && !isNaN(currentTick)) {
+                            indicativeBarrierTooltip.textContent = (parseFloat(currentTick) + parseFloat(barrier['barrier'])).toFixed(decimalPlaces);
+                        } else {
+                            indicativeBarrierTooltip.textContent = '';
+                        }
                     }
                     return;
                 } else if (barrier.count === 2) {
@@ -10043,12 +10040,20 @@ var Barriers = (function () {
                         low_tooltip = document.getElementById('barrier_low_tooltip'),
                         low_span = document.getElementById('barrier_low_span');
 
-                    if (unit && unit.value === 'd' && currentTick) {
-                        high_elm.value = (parseFloat(currentTick) + parseFloat(barrier['barrier'])).toFixed(3);
-                        high_elm.textContent = (parseFloat(currentTick) + parseFloat(barrier['barrier'])).toFixed(3);
+                    if (unit && unit.value === 'd') {
+                        if (currentTick && !isNaN(currentTick)) {
+                            high_elm.value = (parseFloat(currentTick) + parseFloat(barrier['barrier'])).toFixed(decimalPlaces);
+                            high_elm.textContent = (parseFloat(currentTick) + parseFloat(barrier['barrier'])).toFixed(decimalPlaces);
 
-                        low_elm.value = (parseFloat(currentTick) + parseFloat(barrier['barrier1'])).toFixed(3);
-                        low_elm.textContent = (parseFloat(currentTick) + parseFloat(barrier['barrier1'])).toFixed(3);
+                            low_elm.value = (parseFloat(currentTick) + parseFloat(barrier['barrier1'])).toFixed(decimalPlaces);
+                            low_elm.textContent = (parseFloat(currentTick) + parseFloat(barrier['barrier1'])).toFixed(decimalPlaces);
+                        } else {
+                            high_elm.value = parseFloat(barrier['barrier']);
+                            high_elm.textContent = parseFloat(barrier['barrier']);
+
+                            low_elm.value = parseFloat(barrier['barrier1']);
+                            low_elm.textContent = parseFloat(barrier['barrier1']);
+                        }
 
                         high_tooltip.style.display = 'none';
                         high_span.style.display = 'inherit';
@@ -10069,8 +10074,13 @@ var Barriers = (function () {
                         low_span.style.display = 'none';
                         low_tooltip.style.display = 'inherit';
 
-                        indicativeHighBarrierTooltip.textContent = (parseFloat(currentTick) + parseFloat(barrier['barrier'])).toFixed(3);
-                        indicativeLowBarrierTooltip.textContent = (parseFloat(currentTick) + parseFloat(barrier['barrier1'])).toFixed(3);
+                        if (currentTick && !isNaN(currentTick)) {
+                            indicativeHighBarrierTooltip.textContent = (parseFloat(currentTick) + parseFloat(barrier['barrier'])).toFixed(decimalPlaces);
+                            indicativeLowBarrierTooltip.textContent = (parseFloat(currentTick) + parseFloat(barrier['barrier1'])).toFixed(decimalPlaces);
+                        } else {
+                            indicativeHighBarrierTooltip.textContent = '';
+                            indicativeLowBarrierTooltip.textContent = '';
+                        }
                     }
                     return;
                 }
@@ -10453,6 +10463,7 @@ function hideOverlayContainer() {
  * function to assign sorting to market list
  */
 function compareMarkets(a, b) {
+    'use strict';
     var sortedMarkets = {
         'forex': 0,
         'indices': 1,
@@ -10471,6 +10482,7 @@ function compareMarkets(a, b) {
 }
 
 function getContractCategoryTree(elements){
+    'use strict';
 
     var tree = [
         ['updown',
@@ -10511,6 +10523,7 @@ function getContractCategoryTree(elements){
  * function to get cookie javascript way (use if you don't want to use jquery)
  */
 function getCookieItem(sKey) {
+    'use strict';
     if (!sKey) { return null; }
     return decodeURIComponent(document.cookie.replace(new RegExp("(?:(?:^|.*;)\\s*" + encodeURIComponent(sKey).replace(/[\-\.\+\*]/g, "\\$&") + "\\s*\\=\\s*([^;]*).*$)|^.*$"), "$1")) || null;
 }
@@ -10519,6 +10532,7 @@ function getCookieItem(sKey) {
  * Display price/spot movement variation to depict price moved up or down
  */
 function displayPriceMovement(element, oldValue, currentValue) {
+    'use strict';
     element.classList.remove('price_moved_down');
     element.classList.remove('price_moved_up');
     if (parseFloat(currentValue) > parseFloat(oldValue)) {
@@ -10534,6 +10548,7 @@ function displayPriceMovement(element, oldValue, currentValue) {
  * function to toggle active class of menu
  */
 function toggleActiveNavMenuElement(nav, eventElement) {
+    'use strict';
     var liElements = nav.getElementsByTagName("li");
     var classes = eventElement.classList;
 
@@ -10546,6 +10561,7 @@ function toggleActiveNavMenuElement(nav, eventElement) {
 }
 
 function toggleActiveCatMenuElement(nav, eventElementId) {
+    'use strict';
     var eventElement = document.getElementById(eventElementId);
     var liElements = nav.querySelectorAll('.active, .a-active');
     var classes = eventElement.classList;
@@ -10573,6 +10589,7 @@ function toggleActiveCatMenuElement(nav, eventElementId) {
  * function to set placeholder text based on current form, used for mobile menu
  */
 function setFormPlaceholderContent(name) {
+    'use strict';
     var formPlaceholder = document.getElementById('contract_form_nav_placeholder');
     if (formPlaceholder) {
         name = name || sessionStorage.getItem('formname');
@@ -10581,7 +10598,7 @@ function setFormPlaceholderContent(name) {
 }
 
 /*
- * function to display the profit and return of bet under each trade container
+ * function to display the profit and return of bet under each trade container except spreads
  */
 function displayCommentPrice(node, currency, type, payout) {
     'use strict';
@@ -10601,6 +10618,31 @@ function displayCommentPrice(node, currency, type, payout) {
 }
 
 /*
+ * function to display comment for spreads
+ */
+function displayCommentSpreads(node, currency, point) {
+    'use strict';
+
+    if (node && point) {
+        var amountPerPoint = document.getElementById('amount_per_point').value,
+            stopType = document.querySelector('input[name="stop_type"]:checked').value,
+            stopLoss = document.getElementById('stop_loss').value,
+            displayAmount = 0;
+
+        if (isNaN(stopLoss) || isNaN(amountPerPoint)) {
+            node.hide();
+        } else {
+            if (stopType === 'point') {
+                displayAmount = parseFloat(parseFloat(amountPerPoint) * parseFloat(stopLoss));
+            } else {
+                displayAmount = parseFloat(stopLoss);
+            }
+            node.textContent = Content.localize().textSpreadDepositComment + " " + currency + " " + displayAmount + " " + Content.localize().textSpreadRequiredComment + ": " + point + " " + Content.localize().textSpreadPointsComment;
+        }
+    }
+}
+
+/*
  * This function is used in case where we have input and we don't want to fire
  * event on every change while user is typing for example in case of amount if
  * we want to change 10 to 1000 i.e. two zeros so two input events will be fired
@@ -10610,6 +10652,7 @@ function displayCommentPrice(node, currency, type, payout) {
  * http://davidwalsh.name/javascript-debounce-function
  */
 function debounce(func, wait, immediate) {
+    'use strict';
     var timeout;
     var delay = wait || 500;
     return function() {
@@ -10629,6 +10672,7 @@ function debounce(func, wait, immediate) {
  * function to check if selected market is allowed for current user
  */
 function getDefaultMarket() {
+    'use strict';
    var mkt = sessionStorage.getItem('market');
    var markets = Symbols.markets(1);
    if(!mkt ||  !markets[mkt]){
@@ -10641,6 +10685,7 @@ function getDefaultMarket() {
  * this is invoked when submit button is clicked and prevents reloading of page
  */
 function addEventListenerForm(){
+    'use strict';
     document.getElementById('websocket_form').addEventListener("submit", function(evt){
         evt.currentTarget.classList.add('submitted');
         evt.preventDefault();
@@ -10652,17 +10697,19 @@ function addEventListenerForm(){
  * this creates a button, clicks it, and destroys it to invoke the listener
  */
 function submitForm(form) {
-    // var button = form.ownerDocument.createElement('input');
-    // button.style.display = 'none';
-    // button.type = 'submit';
-    // form.appendChild(button).click();
-    // form.removeChild(button);
+    'use strict';
+    var button = form.ownerDocument.createElement('input');
+    button.style.display = 'none';
+    button.type = 'submit';
+    form.appendChild(button).click();
+    form.removeChild(button);
 }
 
 /*
  * function to display indicative barrier
  */
 function displayIndicativeBarrier() {
+    'use strict';
     var unit = document.getElementById('duration_units'),
         currentTick = Tick.quote(),
         indicativeBarrierTooltip = document.getElementById('indicative_barrier_tooltip'),
@@ -10672,17 +10719,18 @@ function displayIndicativeBarrier() {
         highBarrierElement = document.getElementById('barrier_high'),
         lowBarrierElement = document.getElementById('barrier_low');
 
-    if (unit && unit.value !== 'd' && currentTick) {
+    if (unit && unit.value !== 'd' && currentTick && !isNaN(currentTick)) {
+        var decimalPlaces = countDecimalPlaces(currentTick);
         if (indicativeBarrierTooltip && isVisible(indicativeBarrierTooltip)) {
-            indicativeBarrierTooltip.textContent = (parseFloat(currentTick) + parseFloat(barrierElement.value)).toFixed(3);
+            indicativeBarrierTooltip.textContent = (parseFloat(currentTick) + parseFloat(barrierElement.value)).toFixed(decimalPlaces);
         }
 
         if (indicativeHighBarrierTooltip && isVisible(indicativeHighBarrierTooltip)) {
-            indicativeHighBarrierTooltip.textContent = (parseFloat(currentTick) + parseFloat(highBarrierElement.value)).toFixed(3);
+            indicativeHighBarrierTooltip.textContent = (parseFloat(currentTick) + parseFloat(highBarrierElement.value)).toFixed(decimalPlaces);
         }
 
         if (indicativeLowBarrierTooltip && isVisible(indicativeLowBarrierTooltip)) {
-            indicativeLowBarrierTooltip.textContent = (parseFloat(currentTick) + parseFloat(lowBarrierElement.value)).toFixed(3);
+            indicativeLowBarrierTooltip.textContent = (parseFloat(currentTick) + parseFloat(lowBarrierElement.value)).toFixed(decimalPlaces);
         }
     } else {
         indicativeBarrierTooltip.textContent = '';
@@ -10695,6 +10743,7 @@ function displayIndicativeBarrier() {
  * function to sort the duration in ascending order
  */
 function durationOrder(duration){
+    'use strict';
     var order = {
         t:1,
         s:2,
@@ -10703,6 +10752,37 @@ function durationOrder(duration){
         d:5
     };
     return order[duration];
+}
+
+function displayTooltip(market, symbol){
+    'use strict';
+    var tip = document.getElementById('symbol_tip');
+    if(market.match(/^random/)){
+        tip.show();
+        tip.setAttribute('target','/get-started/random-markets');
+    }
+    else if(symbol.match(/^SYN/)){
+        tip.show();
+        tip.setAttribute('target','/smart-indices');
+    }
+    else{
+        tip.hide();
+    }
+}
+
+/*
+ * count number of decimal places in spot so that we can make barrier to same decimal places
+ */
+function countDecimalPlaces(num) {
+    'use strict';
+    if (!isNaN(num)) {
+        var str = num.toString();
+        if (str.indexOf('.') !== -1) {
+            return str.split('.')[1].length;
+        } else {
+            return 0;
+        }
+    }
 }
 ;var Content = (function () {
     'use strict';
@@ -10755,7 +10835,12 @@ function durationOrder(duration){
             textStopType: text.localize('Stop-type'),
             textStopTypePoints: text.localize('Points'),
             textContractConfirmationButton: text.localize('View'),
-            textIndicativeBarrierTooltip: text.localize('This is an indicative barrier. Actual barrier will be the entry spot plus the barrier offset.')
+            textIndicativeBarrierTooltip: text.localize('This is an indicative barrier. Actual barrier will be the entry spot plus the barrier offset.'),
+            textSpreadTypeLong: text.localize('Long'),
+            textSpreadTypeShort: text.localize('Short'),
+            textSpreadDepositComment: text.localize('Deposit of'),
+            textSpreadRequiredComment: text.localize('is required. Current spread'),
+            textSpreadPointsComment: text.localize('points')
         };
 
         var starTime = document.getElementById('start_time_label');
@@ -11106,45 +11191,52 @@ function displayCurrencies(selected) {
  * It also populate expiry type select box i.e Durations and Endtime select
  *
  */
-function displayDurations(startType) {
-    'use strict';
 
-    var durations = Contract.durations();
-    if (durations === false) {
-        document.getElementById('expiry_row').style.display = 'none';
-        return false;
-    }
+var Durations = (function(){
+    
+    var trading_times = {};
+    var expiry_time = '';
 
-    var target = document.getElementById('duration_units'),
-        formName = Contract.form(),
-        barrierCategory = Contract.barrier(),
-        fragment = document.createDocumentFragment(), durationContainer = {};
+    var displayDurations = function(startType) {
+        'use strict';
 
-    while (target && target.firstChild) {
-        target.removeChild(target.firstChild);
-    }
+        var durations = Contract.durations();
+        if (durations === false) {
+            document.getElementById('expiry_row').style.display = 'none';
+            return false;
+        }
 
-    for (var key in durations) {
-        if (durations.hasOwnProperty(key)) {
-            for (var form in durations[key][formName]) {
-                if (durations[key][formName].hasOwnProperty(form)) {
-                    var obj = {};
-                    if (barrierCategory) {
-                        obj = durations[key][formName][barrierCategory];
-                    } else {
-                        obj = durations[key][formName][form];
-                    }
-                    for (var type in obj) {
-                        if (obj.hasOwnProperty(type)) {
-                            if (startType) {
-                                if (startType === type) {
-                                    if(!durationContainer.hasOwnProperty(startType)) {
-                                        durationContainer[key] = obj[startType];
+        var target = document.getElementById('duration_units'),
+            formName = Contract.form(),
+            barrierCategory = Contract.barrier(),
+            fragment = document.createDocumentFragment(), durationContainer = {};
+
+        while (target && target.firstChild) {
+            target.removeChild(target.firstChild);
+        }
+
+        for (var key in durations) {
+            if (durations.hasOwnProperty(key)) {
+                for (var form in durations[key][formName]) {
+                    if (durations[key][formName].hasOwnProperty(form)) {
+                        var obj = {};
+                        if (barrierCategory) {
+                            obj = durations[key][formName][barrierCategory];
+                        } else {
+                            obj = durations[key][formName][form];
+                        }
+                        for (var type in obj) {
+                            if (obj.hasOwnProperty(type)) {
+                                if (startType) {
+                                    if (startType === type) {
+                                        if(!durationContainer.hasOwnProperty(startType)) {
+                                            durationContainer[key] = obj[startType];
+                                        }
                                     }
-                                }
-                            } else {
-                                if(!durationContainer.hasOwnProperty(type)) {
-                                    durationContainer[key] = obj[type];
+                                } else {
+                                    if(!durationContainer.hasOwnProperty(type)) {
+                                        durationContainer[key] = obj[type];
+                                    }
                                 }
                             }
                         }
@@ -11152,195 +11244,227 @@ function displayDurations(startType) {
                 }
             }
         }
-    }
 
-    var duration_list = {};
-    for (var duration in durationContainer) {
-        if(durationContainer.hasOwnProperty(duration)) {
-            var min = durationContainer[duration]['min_contract_duration'],
-                textMapping = durationTextValueMappings(min);
+        var duration_list = {};
+        for (var duration in durationContainer) {
+            if(durationContainer.hasOwnProperty(duration)) {
+                var min = durationContainer[duration]['min_contract_duration'],
+                    textMapping = durationTextValueMappings(min);
 
-            var option, content;
-            if (duration === 'intraday') {
-                switch (textMapping['value']) {
-                    case 's':
-                        option = document.createElement('option');
-                        content = document.createTextNode(textMapping['text']);
-                        option.setAttribute('value', textMapping['value']);
-                        option.setAttribute('data-minimum', textMapping['min']);
-                        option.appendChild(content);
-                        duration_list[textMapping['value']]=option;
-                        option = document.createElement('option');
-                        content = document.createTextNode(Content.localize().textDurationMinutes);
-                        option.setAttribute('value', 'm');
-                        option.setAttribute('data-minimum', 1);
-                        option.setAttribute('selected', 'selected');
-                        option.appendChild(content);
-                        duration_list['m']=option;
-                        option = document.createElement('option');
-                        content = document.createTextNode(Content.localize().textDurationHours);
-                        option.setAttribute('value', 'h');
-                        option.setAttribute('data-minimum', 1);
-                        option.appendChild(content);
-                        duration_list['h']=option;
-                        break;
-                    case 'm':
-                        option = document.createElement('option');
-                        content = document.createTextNode(textMapping['text']);
-                        option.setAttribute('value', textMapping['value']);
-                        option.setAttribute('data-minimum', textMapping['min']);
-                        option.setAttribute('selected', 'selected');
-                        option.appendChild(content);
-                        duration_list[textMapping['value']]=option;
-                        option = document.createElement('option');
-                        content = document.createTextNode(Content.localize().textDurationHours);
-                        option.setAttribute('value', 'h');
-                        option.setAttribute('data-minimum', 1);
-                        option.appendChild(content);
-                        duration_list['h']=option;
-                        break;
-                    case 'h':
-                        option = document.createElement('option');
-                        content = document.createTextNode(textMapping['text']);
-                        option.setAttribute('value', textMapping['value']);
-                        option.setAttribute('data-minimum', textMapping['min']);
-                        option.appendChild(content);
-                        duration_list[textMapping['value']]=option;
-                        break;
-                    default :
-                        option = document.createElement('option');
-                        content = document.createTextNode(textMapping['text']);
-                        option.setAttribute('value', textMapping['value']);
-                        option.setAttribute('data-minimum', textMapping['min']);
-                        option.appendChild(content);
-                        duration_list[textMapping['value']]=option;
-                        break;
+                var option, content;
+                if (duration === 'intraday') {
+                    switch (textMapping['value']) {
+                        case 's':
+                            option = document.createElement('option');
+                            content = document.createTextNode(textMapping['text']);
+                            option.setAttribute('value', textMapping['value']);
+                            option.setAttribute('data-minimum', textMapping['min']);
+                            option.appendChild(content);
+                            duration_list[textMapping['value']]=option;
+                            option = document.createElement('option');
+                            content = document.createTextNode(Content.localize().textDurationMinutes);
+                            option.setAttribute('value', 'm');
+                            option.setAttribute('data-minimum', 1);
+                            option.setAttribute('selected', 'selected');
+                            option.appendChild(content);
+                            duration_list['m']=option;
+                            option = document.createElement('option');
+                            content = document.createTextNode(Content.localize().textDurationHours);
+                            option.setAttribute('value', 'h');
+                            option.setAttribute('data-minimum', 1);
+                            option.appendChild(content);
+                            duration_list['h']=option;
+                            break;
+                        case 'm':
+                            option = document.createElement('option');
+                            content = document.createTextNode(textMapping['text']);
+                            option.setAttribute('value', textMapping['value']);
+                            option.setAttribute('data-minimum', textMapping['min']);
+                            option.setAttribute('selected', 'selected');
+                            option.appendChild(content);
+                            duration_list[textMapping['value']]=option;
+                            option = document.createElement('option');
+                            content = document.createTextNode(Content.localize().textDurationHours);
+                            option.setAttribute('value', 'h');
+                            option.setAttribute('data-minimum', 1);
+                            option.appendChild(content);
+                            duration_list['h']=option;
+                            break;
+                        case 'h':
+                            option = document.createElement('option');
+                            content = document.createTextNode(textMapping['text']);
+                            option.setAttribute('value', textMapping['value']);
+                            option.setAttribute('data-minimum', textMapping['min']);
+                            option.appendChild(content);
+                            duration_list[textMapping['value']]=option;
+                            break;
+                        default :
+                            option = document.createElement('option');
+                            content = document.createTextNode(textMapping['text']);
+                            option.setAttribute('value', textMapping['value']);
+                            option.setAttribute('data-minimum', textMapping['min']);
+                            option.appendChild(content);
+                            duration_list[textMapping['value']]=option;
+                            break;
+                    }
+                } else if (duration === 'daily') {
+                    option = document.createElement('option');
+                    content = document.createTextNode(textMapping['text']);
+                    option.setAttribute('value', textMapping['value']);
+                    option.setAttribute('data-minimum', textMapping['min']);
+                    option.appendChild(content);
+                    duration_list[textMapping['value']]=option;
+                } else if (duration === 'tick') {
+                    option = document.createElement('option');
+                    content = document.createTextNode(textMapping['text']);
+                    option.setAttribute('value', textMapping['value']);
+                    option.setAttribute('data-minimum', textMapping['min']);
+                    option.appendChild(content);
+                    duration_list[textMapping['value']]=option;
                 }
-            } else if (duration === 'daily') {
-                option = document.createElement('option');
-                content = document.createTextNode(textMapping['text']);
-                option.setAttribute('value', textMapping['value']);
-                option.setAttribute('data-minimum', textMapping['min']);
-                option.appendChild(content);
-                duration_list[textMapping['value']]=option;
-            } else if (duration === 'tick') {
-                option = document.createElement('option');
-                content = document.createTextNode(textMapping['text']);
-                option.setAttribute('value', textMapping['value']);
-                option.setAttribute('data-minimum', textMapping['min']);
-                option.appendChild(content);
-                duration_list[textMapping['value']]=option;
+                
             }
-            
         }
-    }
-    var list = Object.keys(duration_list).sort(function(a,b){
-        if(durationOrder(a)>durationOrder(b)){
-            return 1;
+        var list = Object.keys(duration_list).sort(function(a,b){
+            if(durationOrder(a)>durationOrder(b)){
+                return 1;
+            }
+            else{
+                return -1;
+            }
+        });
+        for(var k=0; k<list.length; k++){
+            var d = list[k];
+            if(duration_list.hasOwnProperty(d)){
+                target.appendChild(duration_list[d]);
+            }
         }
-        else{
-            return -1;
-        }
-    });
-    for(var k=0; k<list.length; k++){
-        var d = list[k];
-        if(duration_list.hasOwnProperty(d)){
-            target.appendChild(duration_list[d]);
-        }
-    }
 
-    durationPopulate();
-}
-
-function durationTextValueMappings(str) {
-    'use strict';
-    var mapping = {
-        s : Content.localize().textDurationSeconds,
-        m : Content.localize().textDurationMinutes,
-        h : Content.localize().textDurationHours,
-        d : Content.localize().textDurationDays,
-        t : Content.localize().textDurationTicks
+        durationPopulate();
     };
 
-    var arry = str ? str.toString().match(/[a-zA-Z]+|[0-9]+/g) : [],
-        obj = {};
+    var durationTextValueMappings = function(str) {
+        'use strict';
+        var mapping = {
+            s : Content.localize().textDurationSeconds,
+            m : Content.localize().textDurationMinutes,
+            h : Content.localize().textDurationHours,
+            d : Content.localize().textDurationDays,
+            t : Content.localize().textDurationTicks
+        };
 
-    if (arry.length > 1) {
-        obj['value'] = arry[1];
-        obj['text'] = mapping[arry[1]];
-        obj['min'] = arry[0];
-    } else {
-        obj['value'] = 't';
-        obj['text'] = mapping['t'];
-        obj['min'] = arry[0];
-    }
+        var arry = str ? str.toString().match(/[a-zA-Z]+|[0-9]+/g) : [],
+            obj = {};
 
-    return obj;
-}
+        if (arry.length > 1) {
+            obj['value'] = arry[1];
+            obj['text'] = mapping[arry[1]];
+            obj['min'] = arry[0];
+        } else {
+            obj['value'] = 't';
+            obj['text'] = mapping['t'];
+            obj['min'] = arry[0];
+        }
 
-function durationPopulate() {
-    'use strict';
+        return obj;
+    };
 
-    var unit = document.getElementById('duration_units');
-    if (isVisible(unit)) {
-        var unitValue = unit.options[unit.selectedIndex].getAttribute('data-minimum');
-        document.getElementById('duration_amount').value = unitValue;
-        document.getElementById('duration_minimum').textContent = unitValue;
-        displayExpiryType(unit.value);
-    } else {
-        displayExpiryType();
-    }
+    var durationPopulate = function() {
+        'use strict';
 
-    // we need to call it here as for days we need to show absolute barriers
-    Barriers.display();
-}
+        var unit = document.getElementById('duration_units');
+        if (isVisible(unit)) {
+            var unitValue = unit.options[unit.selectedIndex].getAttribute('data-minimum');
+            document.getElementById('duration_amount').value = unitValue;
+            document.getElementById('duration_minimum').textContent = unitValue;
+            displayExpiryType(unit.value);
+        } else {
+            displayExpiryType();
+        }
 
-function displayExpiryType(unit) {
-    'use strict';
+        // we need to call it here as for days we need to show absolute barriers
+        Barriers.display();
+    };
 
-    var target = document.getElementById('expiry_type'),
-        fragment = document.createDocumentFragment();
+    var displayExpiryType = function(unit) {
+        'use strict';
 
-    var current_selected = target.value || 'duration',
-        id = current_selected,
-        hideId = (current_selected === 'duration') ? 'endtime' : 'duration';
+        var target = document.getElementById('expiry_type'),
+            fragment = document.createDocumentFragment();
 
-    id = document.getElementById('expiry_type_' + id);
-    if (id) {
-        id.style.display = 'flex';
-    }
-    // need to hide the non selected one
-    hideId = document.getElementById('expiry_type_' + hideId);
-    if (hideId) {
-        hideId.style.display = 'none';
-    }
+        var current_selected = target.value || 'duration',
+            id = current_selected,
+            hideId = (current_selected === 'duration') ? 'endtime' : 'duration';
 
-    while (target && target.firstChild) {
-        target.removeChild(target.firstChild);
-    }
+        id = document.getElementById('expiry_type_' + id);
+        if (id) {
+            id.style.display = 'flex';
+        }
+        // need to hide the non selected one
+        hideId = document.getElementById('expiry_type_' + hideId);
+        if (hideId) {
+            hideId.style.display = 'none';
+        }
 
-    var option = document.createElement('option'),
-        content = document.createTextNode(Content.localize().textDuration);
+        while (target && target.firstChild) {
+            target.removeChild(target.firstChild);
+        }
 
-    option.setAttribute('value', 'duration');
-    if (current_selected === 'duration') {
-        option.setAttribute('selected', 'selected');
-    }
-    option.appendChild(content);
-    fragment.appendChild(option);
+        var option = document.createElement('option'),
+            content = document.createTextNode(Content.localize().textDuration);
 
-    if (unit !== 't') {
-        option = document.createElement('option');
-        content = document.createTextNode(Content.localize().textEndTime);
-        option.setAttribute('value', 'endtime');
-        if (current_selected === 'endtime') {
+        option.setAttribute('value', 'duration');
+        if (current_selected === 'duration') {
             option.setAttribute('selected', 'selected');
         }
         option.appendChild(content);
         fragment.appendChild(option);
-    }
-    target.appendChild(fragment);
-}
+
+        if (unit !== 't') {
+            option = document.createElement('option');
+            content = document.createTextNode(Content.localize().textEndTime);
+            option.setAttribute('value', 'endtime');
+            if (current_selected === 'endtime') {
+                option.setAttribute('selected', 'selected');
+            }
+            option.appendChild(content);
+            fragment.appendChild(option);
+        }
+        target.appendChild(fragment);
+    };
+
+    var processTradingTimesAnswer = function(response){
+        if(!trading_times.hasOwnProperty(response.echo_req.trading_times) && response.hasOwnProperty('trading_times') && response.trading_times.hasOwnProperty('markets')){
+            for(var i=0; i<response.trading_times.markets.length; i++){
+                var submarkets = response.trading_times.markets[i].submarkets;
+                if(submarkets){
+                    for(var j=0; j<submarkets.length; j++){
+                        var symbols = submarkets[j].symbols;
+                        if(symbols){
+                            for(var k=0; k<symbols.length; k++){
+                                var symbol = symbols[k];
+                                if(!trading_times[response.echo_req.trading_times]){
+                                    trading_times[response.echo_req.trading_times] = {};
+                                }
+                                trading_times[response.echo_req.trading_times][symbol.symbol] = symbol.times.close;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    };
+
+    return {
+        display: displayDurations,
+        populate: durationPopulate,
+        setTime: function(time){ expiry_time = time; },
+        getTime: function(){ return expiry_time; },
+        processTradingTimesAnswer: processTradingTimesAnswer,
+        trading_times: function(){ return trading_times; }
+    };
+})();
+
 ;/*
  * TradingEvents object contains all the event handler function required for
  * websocket trading page
@@ -11448,11 +11572,12 @@ var TradingEvents = (function () {
         var expiryTypeElement = document.getElementById('expiry_type');
         if (expiryTypeElement) {
             expiryTypeElement.addEventListener('change', function(e) {
-                durationPopulate();
+                Durations.populate();
                 if(e.target && e.target.value === 'endtime') {
                     var current_moment = moment().add(5, 'minutes').utc();
                     document.getElementById('expiry_date').value = current_moment.format('YYYY-MM-DD');
                     document.getElementById('expiry_time').value = current_moment.format('HH:mm');
+                    Durations.setTime(current_moment.format('HH:mm'));
                 }
                 processPriceRequest();
             });
@@ -11464,7 +11589,7 @@ var TradingEvents = (function () {
         var durationUnitElement = document.getElementById('duration_units');
         if (durationUnitElement) {
             durationUnitElement.addEventListener('change', function () {
-                durationPopulate();
+                Durations.populate();
                 processPriceRequest();
             });
         }
@@ -11487,12 +11612,14 @@ var TradingEvents = (function () {
                     var diff = date1.getTime() - date2.getTime();
                     var expiry_time = document.getElementById('expiry_time');
                     if(diff > 24*60*60*1000){
+                        Durations.setTime('');
                         expiry_time.hide();
                     }
                     else{
+                        Durations.setTime(expiry_time.value);
                         expiry_time.show();
                     }
-                    processPriceRequest();
+                    processTradingTimesRequest(input);
                 }
             });
         }
@@ -11500,6 +11627,7 @@ var TradingEvents = (function () {
         var endTimeElement = document.getElementById('expiry_time');
         if (endTimeElement) {
             endTimeElement.addEventListener('change', function () {
+                Durations.setTime(endTimeElement.value);
                 processPriceRequest();
             });
         }
@@ -11525,9 +11653,9 @@ var TradingEvents = (function () {
         if (dateStartElement) {
             dateStartElement.addEventListener('change', function (e) {
                 if (e.target && e.target.value === 'now') {
-                    displayDurations('spot');
+                    Durations.display('spot');
                 } else {
-                    displayDurations('forward');
+                    Durations.display('forward');
                 }
                 processPriceRequest();
             });
@@ -11610,6 +11738,7 @@ var TradingEvents = (function () {
                 }
                 if (id && askPrice) {
                     TradeSocket.send(params);
+                    Price.incrFormId();
                     processForgetPriceIds();
                 }
             }
@@ -11737,6 +11866,14 @@ var TradingEvents = (function () {
                 location.reload();
             }));
         }
+
+        var tip = document.getElementById('symbol_tip');
+        if(init_logo){
+            tip.addEventListener('click', debounce( function (e) {
+                var url = e.target.getAttribute('target');
+                load_with_pjax(url);
+            }));
+        }
     };
 
     return {
@@ -11771,11 +11908,8 @@ var Message = (function () {
                 Purchase.display(response);
             } else if (type === 'tick') {
                 processTick(response);
-            }
-
-            // if(type !== 'tick' && type !== 'proposal'){
-            if(type !== 'tick'){
-                console.log(response);
+            } else if (type === 'trading_times'){
+                processTradingTimes(response);
             }
         } else {
             console.log('some error occured');
@@ -11859,9 +11993,11 @@ var Price = (function () {
             proposal['duration_unit'] = durationUnit.value;
         } else if (expiryType && isVisible(expiryType) && expiryType.value === 'endtime') {
             var endDate2 = endDate.value;
-            var endTime2 = endTime.value;
-            if(!isVisible(endTime)){
-                endTime2="00:00:00";
+            var endTime2 = Durations.getTime();
+            if(!endTime2){
+                var trading_times = Durations.trading_times();
+                if(trading_times.hasOwnProperty(endDate2))
+                endTime2 = trading_times[endDate2][underlying.value];
             }
             proposal['date_expiry'] = moment.utc(endDate2 + " " + endTime2).unix();
         }
@@ -11911,7 +12047,8 @@ var Price = (function () {
         var proposal = details['proposal'];
         var params = details['echo_req'],
             id = proposal['id'],
-            type = params['contract_type'] || typeDisplayIdMapping[id];
+            type = params['contract_type'] || typeDisplayIdMapping[id],
+            is_spread = proposal['spread'] ? true : false;
 
         if (params && Object.getOwnPropertyNames(params).length > 0) {
             typeDisplayIdMapping[id] = type;
@@ -11927,27 +12064,57 @@ var Price = (function () {
 
         var position = contractTypeDisplayMapping(type);
         var container = document.getElementById('price_container_'+position);
+        var box = document.getElementById('price_container_' + position);
 
         var h4 = container.getElementsByClassName('contract_heading')[0],
             amount = container.getElementsByClassName('contract_amount')[0],
             purchase = container.getElementsByClassName('purchase_button')[0],
             description = container.getElementsByClassName('contract_description')[0],
             comment = container.getElementsByClassName('price_comment')[0],
-            error = container.getElementsByClassName('contract_error')[0];
+            error = container.getElementsByClassName('contract_error')[0],
+            currency = document.getElementById('currency');
 
         var display = type ? (contractType ? contractType[type] : '') : '';
         if (display) {
             h4.setAttribute('class', 'contract_heading ' + display.toLowerCase().replace(/ /g, '_'));
-            h4.textContent = display;
+            if (is_spread) {
+                if (position === "top") {
+                    h4.textContent = Content.localize().textSpreadTypeLong;
+                } else {
+                    h4.textContent = Content.localize().textSpreadTypeShort;
+                }
+            } else {
+                h4.textContent = display;
+            }
         }
 
         if (proposal['ask_price']) {
-            amount.textContent = document.getElementById('currency').value + ' ' + proposal['ask_price'];
+            if (is_spread) {
+                amount.textContent = proposal['ask_price'];
+            } else {
+                amount.textContent = currency.value + ' ' + proposal['ask_price'];
+            }
         }
 
         if (proposal['longcode']) {
-            proposal['longcode'] = proposal['longcode'].replace(/\d+\.\d\d/,function(x){return '<b>'+x+'</b>';});
+            proposal['longcode'] = proposal['longcode'].replace(/[\d\,]+\.\d\d/,function(x){return '<b>'+x+'</b>';});
             description.innerHTML = proposal['longcode'];
+        }
+
+        if (document.getElementById('websocket_form')) {
+
+            if (!document.getElementById('websocket_form').checkValidity()) {
+                if (box) {
+                    box.style.display = 'none';
+                }
+                processForgetPriceIds();
+            }
+
+            else if (document.getElementById('websocket_form').checkValidity()) {
+                if (box) {
+                    box.style.display = 'block';
+                }
+            }
         }
 
         if (details['error']){
@@ -11960,7 +12127,11 @@ var Price = (function () {
             purchase.show();
             comment.show();
             error.hide();
-            displayCommentPrice(comment, document.getElementById('currency').value, proposal['ask_price'], proposal['payout']);
+            if (is_spread) {
+                displayCommentSpreads(comment, currency.value, proposal['spread']);
+            } else {
+                displayCommentPrice(comment, currency.value, proposal['ask_price'], proposal['payout']);
+            }
             var oldprice = purchase.getAttribute('data-ask-price');
             if (oldprice) {
                 displayPriceMovement(amount, oldprice, proposal['ask_price']);
@@ -12062,6 +12233,8 @@ function processMarketUnderlying() {
 
     Contract.getContracts(underlying);
 
+    displayTooltip(sessionStorage.getItem('market'),underlying);
+
     requestTradeAnalysis();
 }
 
@@ -12106,7 +12279,7 @@ function processContractForm() {
 
     displayStartDates();
 
-    displayDurations();
+    Durations.display();
 
     displayPrediction();
 
@@ -12229,7 +12402,7 @@ function processProposal(response){
     var price_data = Price.bufferRequests();
     var form_id = Price.getFormId();
     // This is crazy condition but there is no way
-    if((!price_data[response.proposal.id] && response.echo_req.hasOwnProperty('passthrough') && response.echo_req.passthrough.hasOwnProperty('form_id') && response.echo_req.passthrough.form_id === form_id) || (price_data[response.proposal.id] && price_data[response.proposal.id].passthrough.form_id === Price.form_id)){
+    if((!price_data[response.proposal.id] && response.echo_req.hasOwnProperty('passthrough') && response.echo_req.passthrough.hasOwnProperty('form_id') && response.echo_req.passthrough.form_id === form_id) || (price_data[response.proposal.id] && price_data[response.proposal.id].passthrough.form_id === Price.getFormId())){
         hideOverlayContainer();
         Price.display(response, Contract.contractType()[Contract.form()]);
         hidePriceOverlay();
@@ -12238,6 +12411,23 @@ function processProposal(response){
             document.getElementById('trading_init_progress').style.display = 'none';
         }
     }
+}
+
+function processTradingTimesRequest(date){
+    var trading_times = Durations.trading_times();
+    if(trading_times.hasOwnProperty(date)){
+        processPriceRequest();
+    }
+    else{
+        showPriceOverlay();
+        TradeSocket.send({ trading_times: date });
+    }
+}
+
+function processTradingTimes(response){
+    var trading_times = Durations.trading_times();
+    Durations.processTradingTimesAnswer(response);
+    processPriceRequest();
 }
 ;/*
  * Purchase object that handles all the functions related to
@@ -13020,7 +13210,7 @@ WSTickDisplay.updateChart = function(data){
             }
 
             console.log('set interval handler: intv = '+intv);
-            that.storage.removeItem('reality_check.askingForInterval');
+            that.storage.remove('reality_check.askingForInterval');
 
             that.setInterval(intv);
             that.storage.set('reality_check.ack', that.lastAck+1);
@@ -13858,7 +14048,7 @@ function attach_tabs(element) {
 
 	    displayStartDates();
 
-	    displayDurations();
+	    Durations.display();
 	    
 	    if(Periods){
 	    	Periods.displayPeriods();
