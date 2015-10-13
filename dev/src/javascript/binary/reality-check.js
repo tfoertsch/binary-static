@@ -17,7 +17,7 @@ RealityCheck = (function ($) {
     RealityCheck.prototype.getIntervalMs = function () {
         if (this.interval > 0) return this.interval;
 
-        this.interval = parseInt(this.storage.get('reality_check.interval'));
+        this.interval = parseFloat(this.storage.get('reality_check.interval'));
 
         // use default if garbage
         if (isNaN(this.interval) || this.interval<=0)
@@ -33,7 +33,7 @@ RealityCheck = (function ($) {
         this.storage = persistentStore;
 
         val = ($.cookie(this.cookieName)||'').split(',');
-        val[0] = parseInt(val[0]);
+        val[0] = parseFloat(val[0]);
         if (isNaN(val[0]) || val[0]<=0) return;  // no or invalid cookie
         this.default_interval = val[0] * 60 * 1000;
 
@@ -44,7 +44,7 @@ RealityCheck = (function ($) {
         // That way all windows see the same interval.
         $(window).on('storage', function (jq_event) {
             if (jq_event.originalEvent.key === 'reality_check.interval') {
-                that.interval = parseInt(jq_event.originalEvent.newValue);
+                that.interval = parseFloat(jq_event.originalEvent.newValue);
 
                 // garbage here can only happen if the user tries to tamper
                 if (isNaN(that.interval) || that.interval<=0)
@@ -153,7 +153,7 @@ RealityCheck = (function ($) {
 
         this.lastAck = parseInt(this.storage.get('reality_check.ack') || 1);
         $('#reality-check [bcont=1]').on('click', function () {
-            var intv = parseInt($('#reality-check [interval=1]').val());
+            var intv = parseFloat($('#reality-check [interval=1]').val());
             if (intv <= 0) {
                 $('#reality-check p.msg').show('fast');
                 return;
@@ -208,7 +208,7 @@ RealityCheck = (function ($) {
 
         this.lastAck = parseInt(this.storage.get('reality_check.ack') || 1);
         click_handler = function () {
-            var intv = parseInt($('#reality-check [interval=1]').val());
+            var intv = parseFloat($('#reality-check [interval=1]').val());
             if (intv <= 0) {
                 $('#reality-check p.msg').show('fast');
                 return;
