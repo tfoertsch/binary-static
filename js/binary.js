@@ -1942,7 +1942,13 @@ $(document).ready(function () {
     $(window).on('storage', function (jq_event) {
         if (jq_event.originalEvent.key !== 'active_loginid') return;
         if (jq_event.originalEvent.newValue === match) return;
-        location.href = page.url.url_for('user/my_account?loginid=' + jq_event.originalEvent.newValue);
+        if (jq_event.originalEvent.newValue === '') {
+            // logged out
+            location.href = page.url.url_for('home');
+        } else {
+            // loginid switch
+            location.href = page.url.url_for('user/my_account?loginid=' + jq_event.originalEvent.newValue);
+        }
     });
 
     LocalStore.set('active_loginid', match);
