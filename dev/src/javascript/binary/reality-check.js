@@ -30,13 +30,12 @@ RealityCheck = (function ($) {
     function RealityCheck(cookieName, persistentStore) {
         var val, that = this;
         
-        this.cookieName = cookieName;
-        this.storage = persistentStore;
-
-        val = ($.cookie(this.cookieName)||'').split(',');
+        val = ($.cookie(cookieName)||'').split(',');
         val[0] = parseFloat(val[0]);
         if (isNaN(val[0]) || val[0]<=0) return;  // no or invalid cookie
         this.default_interval = val[0] * 60 * 1000;
+
+        this.storage = persistentStore;
 
         // A storage event handler is used to notify about interval changes.
         // That way all windows see the same interval.
