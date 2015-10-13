@@ -189,14 +189,29 @@ onLoad.queue(function () {
     attach_tabs('.has-tabs');
 });
 
+$(document).ready(function () {
+    // $.cookie is not always available.
+    // So, fall back to a more basic solution.
+    var match = document.cookie.match(/\bloginid=(\w+)/);
+    match = match ? match[1] : '';
+
+    $(window).on('storage', function (jq_event) {
+        if (jq_event.originalEvent.key !== 'active_loginid') return;
+        if (jq_event.originalEvent.newValue === match) return;
+        location.href = page.url.url_for('user/my_account?loginid=' + jq_event.originalEvent.newValue);
+    });
+
+    LocalStore.set('active_loginid', match);
+});
+
 // this event is fired when there is change in localStorage
 // that looks for active_loginid key change, this was needed for
 // scenario where client has multiple tab/window open and switch
 // account on one tab then we need to load all the open tab/window
-$(window).on('storage', function (jq_event) {
-    if (jq_event.originalEvent.key !== 'active_loginid') return;
-    // wait for 2 seconds as cookie is being set else it will show login screen
-    window.setTimeout(function () {
-        location.href = page.url.url_for('user/my_account?loginid=' + LocalStore.get('active_loginid'));
-    }, 2000);
-});
+// $(window).on('storage', function (jq_event) {
+//     if (jq_event.originalEvent.key !== 'active_loginid') return;
+//     // wait for 2 seconds as cookie is being set else it will show login screen
+//     window.setTimeout(function () {
+//         location.href = page.url.url_for('user/my_account?loginid=' + LocalStore.get('active_loginid'));
+//     }, 2000);
+// });

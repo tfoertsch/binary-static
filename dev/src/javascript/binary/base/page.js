@@ -793,7 +793,6 @@ Page.prototype = {
     on_change_loginid: function() {
         var that = this;
         $('#client_loginid').on('change', function() {
-            LocalStore.set('active_loginid', $(this).val());
             $('#loginid-switch-form').submit();
         });
     },
