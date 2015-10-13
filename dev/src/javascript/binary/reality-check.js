@@ -15,19 +15,19 @@ RealityCheck = (function ($) {
     };
 
     RealityCheck.prototype.getIntervalMs = function () {
-        var val;
-
         if (this.interval > 0) return this.interval;
 
-        val = parseInt(this.storage.get('reality_check.interval'));
+        this.interval = parseInt(this.storage.get('reality_check.interval'));
 
-        if (isNaN(val) || val<=0) return;
+        // use default if garbage
+        if (isNaN(this.interval) || this.interval<=0)
+            this.interval = this.default_interval;
 
-        return this.interval = val;
+        return this.interval;
     };
 
     function RealityCheck(cookieName, persistentStore, logoutLocation) {
-        var val;
+        var val, that = this;
         
         this.cookieName = cookieName;
         this.storage = persistentStore;
@@ -35,9 +35,26 @@ RealityCheck = (function ($) {
         val = ($.cookie(this.cookieName)||'').split(',');
         val[0] = parseInt(val[0]);
         if (isNaN(val[0]) || val[0]<=0) return;  // no or invalid cookie
+        this.default_interval = val[0] * 60 * 1000;
 
         this.logoutLocation = logoutLocation;
         if (!this.logoutLocation) return; // not logged in?
+
+        // A storage event handler is used to notify about interval changes.
+        // That way all windows see the same interval.
+        $(window).on('storage', function (jq_event) {
+            if (jq_event.originalEvent.key !== 'reality_check.interval') return;
+
+            that.interval = parseInt(jq_event.originalEvent.newValue);
+
+            // garbage here can only happen if the user tries to tamper
+            if (isNaN(that.interval) || that.interval<=0)
+                that.interval = that.default_interval;
+
+            console.log('new interval storage handler new intv = '+that.interval);
+
+            that.setAlarm();
+        });
 
         // The cookie is formatted as DEFAULT_INTERVAL , SERVER_TIME_WHEN_IT_WAS_ISSUED
         // We save the server time in local storage. If the stored time differs from
@@ -46,24 +63,22 @@ RealityCheck = (function ($) {
 
         if (val[1] && val[1] != persistentStore.get('reality_check.srvtime')) {
             persistentStore.set('reality_check.srvtime', val[1]);
-            persistentStore.set('reality_check.basetime', (new Date()).getTime());
+            persistentStore.set('reality_check.basetime', this.basetime = new Date().getTime());
             persistentStore.set('reality_check.ack', 1);
             this.askForFrequency();
+        } else {
+            this.basetime = parseInt(persistentStore.get('reality_check.basetime'));
+            this.setAlarm();
         }
-
-        if (this.getIntervalMs() === undefined) this.setInterval(val[0]);
-
-        this.basetime = persistentStore.get('reality_check.basetime');
-
-        return this.setAlarm();
     }
 
     RealityCheck.prototype.setAlarm = function () {
         var that = this;
-        var alrm = this.interval - ((new Date()).getTime() - this.basetime) % this.interval;
+        var intv = this.getIntervalMs();
+        var alrm = intv - (new Date().getTime() - this.basetime) % intv;
 
-        // console.log('interval = '+this.interval+', next alarm in '+alrm+' ms');
-        // console.log('alrm at '+(new Date((new Date()).getTime()+alrm)).toUTCString());
+        console.log('interval = '+this.interval+', next alarm in '+alrm+' ms');
+        console.log('alrm at '+(new Date((new Date()).getTime()+alrm)).toUTCString());
 
         if (this.tmout) window.clearTimeout(this.tmout);
 
@@ -112,6 +127,8 @@ RealityCheck = (function ($) {
             if (jq_event.originalEvent.key !== 'reality_check.ack') return;
             ack = parseInt(jq_event.originalEvent.newValue || 1);
             if (ack > that.lastAck) {
+                console.log('Display storage handler');
+
                 $(window).off('storage', storage_handler);
                 that.setAlarm();
                 $('#reality-check').remove();
@@ -124,6 +141,12 @@ RealityCheck = (function ($) {
 
         this.lastAck = parseInt(this.storage.get('reality_check.ack') || 1);
         $('#reality-check [bcont=1]').on('click', function () {
+            var intv = parseInt($('#reality-check [interval=1]').val());
+            if (intv <= 0) {
+                $('#reality-check p.msg').show('fast');
+                return;
+            }
+            that.setInterval(intv);
             that.storage.set('reality_check.ack', that.lastAck+1);
             $(window).off('storage', storage_handler);
             that.setAlarm();
@@ -157,8 +180,11 @@ RealityCheck = (function ($) {
             var ack;
 
             if (jq_event.originalEvent.key !== 'reality_check.ack') return;
+
             ack = parseInt(jq_event.originalEvent.newValue || 1);
             if (ack > that.lastAck) {
+                console.log('FreqSet storage handler');
+
                 $(window).off('storage', storage_handler);
                 $('#reality-check').remove();
             }
@@ -175,6 +201,9 @@ RealityCheck = (function ($) {
                 $('#reality-check p.msg').show('fast');
                 return;
             }
+
+            console.log('set interval handler: intv = '+intv);
+
             that.setInterval(intv);
             that.storage.set('reality_check.ack', that.lastAck+1);
             $(window).off('storage', storage_handler);
