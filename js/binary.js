@@ -616,9 +616,6 @@ var User = function() {
 
 var Client = function() {
     this.loginid =  $.cookie('loginid');
-
-    console.log('current loginid is '+this.loginid);
-
     this.residence =  $.cookie('residence');
     this.is_logged_in = false;
     this.is_real = false;
@@ -13020,6 +13017,9 @@ WSTickDisplay.updateChart = function(data){
 
 onLoad.queue(function () {
     var logoutBtn = $('#btn_logout')[0];
+
+    console.log('About to create reality-check object: '+logoutBtn);
+
     if (!logoutBtn) return;
     if (window.reality_check_object) return;
     window.reality_check_object = new RealityCheck('reality_check', LocalStore, logoutBtn.getAttribute('href'));
