@@ -1931,6 +1931,14 @@ onLoad.queue(function () {
     attach_tabs('.has-tabs');
 });
 
+// LocalStorage can be used as a means of communication among
+// different windows. The problem that is solved here is what
+// happens if the user logs out or switches loginid in one
+// window while keeping another window or tab open. This can
+// lead to unintended trades. The solution is to load the
+// account page in all windows after switching loginid or
+// the home page after logout.
+
 // onLoad.queue does not work on the home page.
 // jQuery's ready function works always.
 $(document).ready(function () {
@@ -1953,18 +1961,6 @@ $(document).ready(function () {
 
     LocalStore.set('active_loginid', match);
 });
-
-// this event is fired when there is change in localStorage
-// that looks for active_loginid key change, this was needed for
-// scenario where client has multiple tab/window open and switch
-// account on one tab then we need to load all the open tab/window
-// $(window).on('storage', function (jq_event) {
-//     if (jq_event.originalEvent.key !== 'active_loginid') return;
-//     // wait for 2 seconds as cookie is being set else it will show login screen
-//     window.setTimeout(function () {
-//         location.href = page.url.url_for('user/my_account?loginid=' + LocalStore.get('active_loginid'));
-//     }, 2000);
-// });
 ;DatePicker = function(component_id, select_type) {
     this.component_id = component_id;
     this.select_type = (typeof select_type === "undefined") ? "date" : select_type;
@@ -12837,7 +12833,7 @@ WSTickDisplay.updateChart = function(data){
 
     function RealityCheck(cookieName, persistentStore) {
         var val, that = this;
-        
+
         val = ($.cookie(cookieName)||'').split(',');
         val[0] = parseFloat(val[0]);
         if (isNaN(val[0]) || val[0]<=0) return;  // no or invalid cookie
@@ -12882,6 +12878,9 @@ WSTickDisplay.updateChart = function(data){
             persistentStore.set('reality_check.srvtime', val[1]);
             persistentStore.set('reality_check.basetime', this.basetime = new Date().getTime());
             persistentStore.set('reality_check.ack', 1);
+            this.askForFrequency();
+        } else if (persistentStore.get('reality_check.askingForInterval')) {
+            this.basetime = parseInt(persistentStore.get('reality_check.basetime'));
             this.askForFrequency();
         } else {
             this.basetime = parseInt(persistentStore.get('reality_check.basetime'));
@@ -12993,6 +12992,7 @@ WSTickDisplay.updateChart = function(data){
         $('<div>' + data + '</div>').appendTo(middle);
         $('#reality-check [interval=1]').val(this.getInterval());
 
+        this.storage.set('reality_check.askingForInterval', 1);
         storage_handler = function (jq_event) {
             var ack;
 
@@ -13020,6 +13020,7 @@ WSTickDisplay.updateChart = function(data){
             }
 
             console.log('set interval handler: intv = '+intv);
+            that.storage.removeItem('reality_check.askingForInterval');
 
             that.setInterval(intv);
             that.storage.set('reality_check.ack', that.lastAck+1);

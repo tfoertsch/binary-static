@@ -29,7 +29,7 @@ RealityCheck = (function ($) {
 
     function RealityCheck(cookieName, persistentStore) {
         var val, that = this;
-        
+
         val = ($.cookie(cookieName)||'').split(',');
         val[0] = parseFloat(val[0]);
         if (isNaN(val[0]) || val[0]<=0) return;  // no or invalid cookie
@@ -74,6 +74,9 @@ RealityCheck = (function ($) {
             persistentStore.set('reality_check.srvtime', val[1]);
             persistentStore.set('reality_check.basetime', this.basetime = new Date().getTime());
             persistentStore.set('reality_check.ack', 1);
+            this.askForFrequency();
+        } else if (persistentStore.get('reality_check.askingForInterval')) {
+            this.basetime = parseInt(persistentStore.get('reality_check.basetime'));
             this.askForFrequency();
         } else {
             this.basetime = parseInt(persistentStore.get('reality_check.basetime'));
@@ -185,6 +188,7 @@ RealityCheck = (function ($) {
         $('<div>' + data + '</div>').appendTo(middle);
         $('#reality-check [interval=1]').val(this.getInterval());
 
+        this.storage.set('reality_check.askingForInterval', 1);
         storage_handler = function (jq_event) {
             var ack;
 
@@ -212,6 +216,7 @@ RealityCheck = (function ($) {
             }
 
             console.log('set interval handler: intv = '+intv);
+            that.storage.removeItem('reality_check.askingForInterval');
 
             that.setInterval(intv);
             that.storage.set('reality_check.ack', that.lastAck+1);
