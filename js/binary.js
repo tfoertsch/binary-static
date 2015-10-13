@@ -616,6 +616,9 @@ var User = function() {
 
 var Client = function() {
     this.loginid =  $.cookie('loginid');
+
+    console.log('current loginid is '+this.loginid);
+
     this.residence =  $.cookie('residence');
     this.is_logged_in = false;
     this.is_real = false;
