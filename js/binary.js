@@ -13015,7 +13015,7 @@ WSTickDisplay.updateChart = function(data){
     return RealityCheck;
 }(jQuery));
 
-onLoad.queue(function () {
+$(document).ready(function () {
     var logoutBtn = $('#btn_logout')[0];
 
     console.log('About to create reality-check object: '+logoutBtn);
@@ -13024,6 +13024,16 @@ onLoad.queue(function () {
     if (window.reality_check_object) return;
     window.reality_check_object = new RealityCheck('reality_check', LocalStore, logoutBtn.getAttribute('href'));
 });
+
+// onLoad.queue(function () {
+//     var logoutBtn = $('#btn_logout')[0];
+
+//     console.log('About to create reality-check object: '+logoutBtn);
+
+//     if (!logoutBtn) return;
+//     if (window.reality_check_object) return;
+//     window.reality_check_object = new RealityCheck('reality_check', LocalStore, logoutBtn.getAttribute('href'));
+// });
 ;//////////////////////////////////////////////////////////////////
 // Purpose: Write loading image to a container for ajax request
 // Parameters:
