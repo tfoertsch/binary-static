@@ -1931,6 +1931,8 @@ onLoad.queue(function () {
     attach_tabs('.has-tabs');
 });
 
+// onLoad.queue does not work on the home page.
+// jQuery's ready function works always.
 $(document).ready(function () {
     // $.cookie is not always available.
     // So, fall back to a more basic solution.
