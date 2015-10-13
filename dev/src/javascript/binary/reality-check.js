@@ -43,17 +43,29 @@ RealityCheck = (function ($) {
         // A storage event handler is used to notify about interval changes.
         // That way all windows see the same interval.
         $(window).on('storage', function (jq_event) {
-            if (jq_event.originalEvent.key !== 'reality_check.interval') return;
+            if (jq_event.originalEvent.key === 'reality_check.interval') {
+                that.interval = parseInt(jq_event.originalEvent.newValue);
 
-            that.interval = parseInt(jq_event.originalEvent.newValue);
+                // garbage here can only happen if the user tries to tamper
+                if (isNaN(that.interval) || that.interval<=0)
+                    that.interval = that.default_interval;
 
-            // garbage here can only happen if the user tries to tamper
-            if (isNaN(that.interval) || that.interval<=0)
-                that.interval = that.default_interval;
+                console.log('interval storage handler new value = '+that.interval);
 
-            console.log('new interval storage handler new intv = '+that.interval);
+                that.setAlarm();
+            }
 
-            that.setAlarm();
+            if (jq_event.originalEvent.key === 'reality_check.basetime') {
+                var val = parseInt(jq_event.originalEvent.newValue);
+
+                // garbage here can only happen if the user tries to tamper
+                if (isNaN(val) || val<=0) return;
+                that.basetime = val;
+
+                console.log('basetime storage handler new value = '+that.basetime);
+
+                that.setAlarm();
+            }
         });
 
         // The cookie is formatted as DEFAULT_INTERVAL , SERVER_TIME_WHEN_IT_WAS_ISSUED
