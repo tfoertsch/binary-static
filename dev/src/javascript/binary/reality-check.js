@@ -3,6 +3,7 @@ RealityCheck = (function ($) {
 
     var reality_check_url = page.url.url_for('user/reality_check');
     var reality_freq_url  = page.url.url_for('user/reality_check_frequency');
+    var logout_url        = page.url.url_for('logout');
 
     RealityCheck.prototype.setInterval = function (intv) {
         this.interval = intv * 60 * 1000; // convert minutes to millisec
@@ -26,7 +27,7 @@ RealityCheck = (function ($) {
         return this.interval;
     };
 
-    function RealityCheck(cookieName, persistentStore, logoutLocation) {
+    function RealityCheck(cookieName, persistentStore) {
         var val, that = this;
         
         this.cookieName = cookieName;
@@ -36,9 +37,6 @@ RealityCheck = (function ($) {
         val[0] = parseFloat(val[0]);
         if (isNaN(val[0]) || val[0]<=0) return;  // no or invalid cookie
         this.default_interval = val[0] * 60 * 1000;
-
-        this.logoutLocation = logoutLocation;
-        if (!this.logoutLocation) return; // not logged in?
 
         // A storage event handler is used to notify about interval changes.
         // That way all windows see the same interval.
@@ -166,7 +164,7 @@ RealityCheck = (function ($) {
         });
 
         $('#reality-check .blogout').on('click', function () {
-            window.location.href = that.logoutLocation;
+            window.location.href = logout_url;
         });
     };
 
@@ -230,21 +228,8 @@ RealityCheck = (function ($) {
 }(jQuery));
 
 $(document).ready(function () {
-    var logoutBtn = $('#btn_logout')[0];
+    console.log('About to create reality-check object');
 
-    console.log('About to create reality-check object: '+logoutBtn);
-
-    if (!logoutBtn) return;
     if (window.reality_check_object) return;
-    window.reality_check_object = new RealityCheck('reality_check', LocalStore, logoutBtn.getAttribute('href'));
+    window.reality_check_object = new RealityCheck('reality_check', LocalStore);
 });
-
-// onLoad.queue(function () {
-//     var logoutBtn = $('#btn_logout')[0];
-
-//     console.log('About to create reality-check object: '+logoutBtn);
-
-//     if (!logoutBtn) return;
-//     if (window.reality_check_object) return;
-//     window.reality_check_object = new RealityCheck('reality_check', LocalStore, logoutBtn.getAttribute('href'));
-// });
