@@ -200,6 +200,7 @@ RealityCheck = (function ($) {
 
                 $(window).off('storage', storage_handler);
                 $('#reality-check').remove();
+                that.setAlarm();
             }
         };
 

@@ -13194,6 +13194,7 @@ WSTickDisplay.updateChart = function(data){
 
                 $(window).off('storage', storage_handler);
                 $('#reality-check').remove();
+                that.setAlarm();
             }
         };
 
