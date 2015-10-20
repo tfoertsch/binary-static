@@ -154,8 +154,7 @@ RealityCheck = (function ($) {
         this.lastAck = parseInt(this.storage.get('reality_check.ack') || 1);
         $('#reality-check [bcont=1]').on('click', function () {
             var intv = parseFloat($('#reality-check [interval=1]').val());
-            if (!(intv > 0)) {  // the greater than and negation accounts for NaN.
-                                // this is not the same as if (intv<=0)
+            if (isNaN(intv) || intv <= 0) {
                 $('#reality-check p.msg').show('fast');
                 return;
             }
@@ -212,8 +211,7 @@ RealityCheck = (function ($) {
         this.lastAck = parseInt(this.storage.get('reality_check.ack') || 1);
         click_handler = function () {
             var intv = parseFloat($('#reality-check [interval=1]').val());
-            if (!(intv > 0)) {  // the greater than and negation accounts for NaN.
-                                // this is not the same as if (intv<=0)
+            if (isNaN(intv) || intv <= 0) {
                 $('#reality-check p.msg').show('fast');
                 return;
             }

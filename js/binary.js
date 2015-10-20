@@ -3768,7 +3768,7 @@ BetAnalysis.DigitInfo.prototype = {
     },
     on_latest: function() {
         var that = this;
-        var tab = $('#' + this.id + "-content");
+        var tab = $('#tab_last_digit-content');
         var form = tab.find('form:first');
         form.on('submit', function(event) {
             event.preventDefault();
@@ -6885,6 +6885,7 @@ BetForm.Time.EndTime.prototype = {
                     sessionStorage.setItem('error_message', field.attr('error_message'));
                     data['error_message'] = field.attr('error_message');
                 }
+                data['sell_channel'] = field.attr('sell_channel');
                 data['barrier'] = field.attr('barrier');
                 data['barrier2'] = field.attr('barrier2');
                 data['is_immediate'] = field.attr('is_immediate');
@@ -7155,12 +7156,19 @@ BetForm.Time.EndTime.prototype = {
             this.cancel_previous_analyse_request();
             var attr = this.data_attr(element);
             var params = this.get_params(element);
+            var $loading = $('#trading_init_progress');
+            if($loading){
+                $loading.show();
+            }
             _analyse_request = $.ajax(ajax_loggedin({
                 url     : attr.url(),
                 type    : 'POST',
                 async   : true,
                 data    : params,
                 success : function (data) {
+                    if($loading){
+                        $loading.hide();
+                    }
                     var con = that.show_sell_at_market(data);
                     var server_data = that.server_data();
                     $('.tab_menu_container').tabs({
@@ -7242,7 +7250,7 @@ BetForm.Time.EndTime.prototype = {
                     that.clear_warnings();
                     var now_time_con = con.find('#now_time_container');
                     if (now_time_con.length > 0 ) {
-                        var stream_url = server_data.stream_url + '/' + attr.model.sell_channel();
+                        var stream_url = server_data.stream_url + '/' + server_data.sell_channel;
                         that.streaming.start(stream_url);
                         that.start_now_timer(con, 'now_time_container', 'trade_date_now'); // now timer
                         that.create_date_timer(con.find('#trade_details_now_date'));
@@ -9877,7 +9885,12 @@ function loadAnalysisTab() {
                 bindSubmitForIntradayPrices();
             } else if (currentTab === 'tab_ohlc') {
                 bindSubmitForDailyPrices();
+            } else if (currentTab == 'tab_last_digit') {
+                var digitInfo = new BetAnalysis.DigitInfo();
+                digitInfo.on_latest();
+                digitInfo.show_chart(sessionStorage.getItem('underlying'));
             }
+
         });
     }
 
@@ -11193,13 +11206,12 @@ function displayCurrencies(selected) {
  */
 
 var Durations = (function(){
-    
+    'use strict';
+
     var trading_times = {};
     var expiry_time = '';
 
     var displayDurations = function(startType) {
-        'use strict';
-
         var durations = Contract.durations();
         if (durations === false) {
             document.getElementById('expiry_row').style.display = 'none';
@@ -11322,7 +11334,6 @@ var Durations = (function(){
                     option.appendChild(content);
                     duration_list[textMapping['value']]=option;
                 }
-                
             }
         }
         var list = Object.keys(duration_list).sort(function(a,b){
@@ -11344,7 +11355,6 @@ var Durations = (function(){
     };
 
     var durationTextValueMappings = function(str) {
-        'use strict';
         var mapping = {
             s : Content.localize().textDurationSeconds,
             m : Content.localize().textDurationMinutes,
@@ -11370,8 +11380,6 @@ var Durations = (function(){
     };
 
     var durationPopulate = function() {
-        'use strict';
-
         var unit = document.getElementById('duration_units');
         if (isVisible(unit)) {
             var unitValue = unit.options[unit.selectedIndex].getAttribute('data-minimum');
@@ -11382,13 +11390,27 @@ var Durations = (function(){
             displayExpiryType();
         }
 
+        // jquery for datepicker
+        var amountElement = $('#duration_amount');
+        if (unit.value === 'd') {
+            amountElement.datepicker({
+                onSelect: function() {
+                    var date = $(this).datepicker('getDate');
+                    var today = new Date();
+                    var dayDiff = Math.ceil((date - today) / (1000 * 60 * 60 * 24));
+                    amountElement.val(dayDiff);
+                    amountElement.trigger('change');
+                }
+            });
+        } else {
+            amountElement.datepicker("destroy");
+        }
+
         // we need to call it here as for days we need to show absolute barriers
         Barriers.display();
     };
 
     var displayExpiryType = function(unit) {
-        'use strict';
-
         var target = document.getElementById('expiry_type'),
             fragment = document.createDocumentFragment();
 
@@ -11559,7 +11581,8 @@ var TradingEvents = (function () {
          */
         var durationAmountElement = document.getElementById('duration_amount');
         if (durationAmountElement) {
-            durationAmountElement.addEventListener('input', debounce (function (e) {
+            // jquery needed for datepicker
+            $('#duration_amount').on('change', debounce(function (e) {
                 processPriceRequest();
                 submitForm(document.getElementById('websocket_form'));
             }));
@@ -11599,7 +11622,9 @@ var TradingEvents = (function () {
          */
         var endDateElement = document.getElementById('expiry_date');
         if (endDateElement) {
-            endDateElement.addEventListener('change', function () {
+            // need to use jquery as datepicker is used, if we switch to some other
+            // datepicker we can move back to javascript
+            $('#expiry_date').on('change', function () {
                 var input = this.value;
                 var match = input.match(/^(\d{4})-(\d{2})-(\d{2})$/);
                 if(match){
@@ -11626,7 +11651,7 @@ var TradingEvents = (function () {
 
         var endTimeElement = document.getElementById('expiry_time');
         if (endTimeElement) {
-            endTimeElement.addEventListener('change', function () {
+            $('#expiry_time').on('change', function () {
                 Durations.setTime(endTimeElement.value);
                 processPriceRequest();
             });
@@ -11874,6 +11899,23 @@ var TradingEvents = (function () {
                 load_with_pjax(url);
             }));
         }
+
+        var view_button = document.getElementById('contract_purchase_button');
+        if(view_button){
+            tip.addEventListener('click', debounce( function (e) {
+                BetSell.sell_at_market($(e.traget)[0]);
+            }));
+        }
+
+
+        /*
+         * attach datepicker and timepicker to end time durations
+         * have to use jquery
+         */
+        $(".pickadate").datepicker({
+            dateFormat: "yy-mm-dd"
+        });
+        $(".pickatime" ).timepicker();
     };
 
     return {
@@ -12088,11 +12130,11 @@ var Price = (function () {
             }
         }
 
-        if (proposal['ask_price']) {
+        if (proposal['display_value']) {
             if (is_spread) {
-                amount.textContent = proposal['ask_price'];
+                amount.textContent = proposal['display_value'];
             } else {
-                amount.textContent = currency.value + ' ' + proposal['ask_price'];
+                amount.textContent = currency.value + ' ' + proposal['display_value'];
             }
         }
 
@@ -12132,12 +12174,13 @@ var Price = (function () {
             } else {
                 displayCommentPrice(comment, currency.value, proposal['ask_price'], proposal['payout']);
             }
-            var oldprice = purchase.getAttribute('data-ask-price');
+            var oldprice = purchase.getAttribute('data-display_value');
             if (oldprice) {
-                displayPriceMovement(amount, oldprice, proposal['ask_price']);
+                displayPriceMovement(amount, oldprice, proposal['display_value']);
             }
             purchase.setAttribute('data-purchase-id', id);
             purchase.setAttribute('data-ask-price', proposal['ask_price']);
+            purchase.setAttribute('data-display_value', proposal['display_value']);
             purchase.setAttribute('data-symbol', id);
             for(var key in bufferRequests[id]){
                 if(key && key !== 'proposal'){
@@ -12461,7 +12504,7 @@ var Purchase = (function () {
             button = document.getElementById('contract_purchase_button');
 
         var error = details['error'];
-        var show_chart = !error && passthrough['duration']<=10 && passthrough['duration_unit']==='t' && (sessionStorage.formname === 'risefall' || sessionStorage.formname === 'higherlower');
+        var show_chart = !error && passthrough['duration']<=10 && passthrough['duration_unit']==='t' && (sessionStorage.formname === 'risefall' || sessionStorage.formname === 'higherlower' || sessionStorage.formname === 'asian');
 
         container.style.display = 'block';
         contracts_list.style.display = 'none';
@@ -12491,10 +12534,23 @@ var Purchase = (function () {
             }
             profit_value = Math.round((payout_value - cost_value)*100)/100;
 
-            payout.innerHTML = Content.localize().textContractConfirmationPayout + ' <p>' + payout_value + '</p>';
-            cost.innerHTML = Content.localize().textContractConfirmationCost + ' <p>' + cost_value + '</p>';
-            profit.innerHTML = Content.localize().textContractConfirmationProfit + ' <p>' + profit_value + '</p>';
+            if(sessionStorage.getItem('formname')==='spreads'){
+                payout.hide();
+                cost.hide();
+                profit.hide();
 
+                // payout.innerHTML = Content.localize().textStopLoss + ' <p>' + payout_value + '</p>';
+                // cost.innerHTML = Content.localize().textAmountPerPoint + ' <p>' + cost_value + '</p>';
+                // profit.innerHTML = Content.localize().textStopProfit + ' <p>' + profit_value + '</p>';
+            }
+            else {
+                payout.show();
+                cost.show();
+                profit.show();
+                payout.innerHTML = Content.localize().textContractConfirmationPayout + ' <p>' + payout_value + '</p>';
+                cost.innerHTML = Content.localize().textContractConfirmationCost + ' <p>' + cost_value + '</p>';
+                profit.innerHTML = Content.localize().textContractConfirmationProfit + ' <p>' + profit_value + '</p>';
+            }
 
             balance.textContent = Content.localize().textContractConfirmationBalance + ' ' + User.get().currency + ' ' + Math.round(receipt['balance_after']*100)/100;
 
@@ -12513,27 +12569,40 @@ var Purchase = (function () {
                 spots.hide();
             }
 
-            button.textContent = Content.localize().textContractConfirmationButton;
-            var purchase_date = new Date(receipt['purchase_time']*1000);
-            var button_attrs = {
-                contract_id: receipt['fmb_id'],
-                controller_action: 'sell',
-                currency: document.getElementById('currency').value,
-                payout: payout_value,
-                purchase_price: cost_value,
-                purchase_time: (purchase_date.getUTCFullYear()+'-'+(purchase_date.getUTCMonth()+1)+'-'+purchase_date.getUTCDate()+' '+purchase_date.getUTCHours()+':'+purchase_date.getUTCMinutes()+':'+purchase_date.getUTCSeconds()),
-                qty:1,
-                shortcode:receipt['shortcode'],
-                url:'https://'+window.location.host+'/trade/analyse_contract?l=EN'
-            };
-            for(var k in button_attrs){
-                if(k){
-                    button.setAttribute(k,button_attrs[k]);
+            if(sessionStorage.formname !== 'digits' && !show_chart){
+                button.show();
+                button.textContent = Content.localize().textContractConfirmationButton;
+                var purchase_date = new Date(receipt['purchase_time']*1000);
+                var button_attrs = {
+                    contract_id: receipt['fmb_id'],
+                    controller_action: 'sell',
+                    currency: document.getElementById('currency').value,
+                    payout: payout_value,
+                    purchase_price: cost_value,
+                    purchase_time: (purchase_date.getUTCFullYear()+'-'+(purchase_date.getUTCMonth()+1)+'-'+purchase_date.getUTCDate()+' '+purchase_date.getUTCHours()+':'+purchase_date.getUTCMinutes()+':'+purchase_date.getUTCSeconds()),
+                    qty:1,
+                    shortcode:receipt['shortcode'],
+                    url:'https://'+window.location.host+'/trade/analyse_contract?l=EN'
+                };
+                for(var k in button_attrs){
+                    if(k){
+                        button.setAttribute(k,button_attrs[k]);
+                    }
                 }
+            }
+            else{
+                button.hide();
             }
         }
 
         if(show_chart){
+            var contract_sentiment;
+            if(passthrough['contract_type']==='CALL' || passthrough['contract_type']==='ASIANU'){
+                contract_sentiment = 'up';
+            }
+            else{
+                contract_sentiment = 'down';
+            }
             WSTickDisplay.initialize({
                 "symbol":passthrough.symbol,
                 "number_of_ticks":passthrough.duration,
@@ -12543,7 +12612,7 @@ var Purchase = (function () {
                 "display_symbol":Symbols.getName(passthrough.symbol),
                 "contract_start":receipt['start_time'],
                 "decimal":3,
-                "contract_sentiment":(passthrough['contract_type']==='CALL' ? 'up' : 'down'),
+                "contract_sentiment":contract_sentiment,
                 "price":passthrough['ask-price'],
                 "payout":passthrough['amount'],
                 "show_contract_result":1
@@ -13148,8 +13217,7 @@ WSTickDisplay.updateChart = function(data){
         this.lastAck = parseInt(this.storage.get('reality_check.ack') || 1);
         $('#reality-check [bcont=1]').on('click', function () {
             var intv = parseFloat($('#reality-check [interval=1]').val());
-            if (!(intv > 0)) {  // the greater than and negation accounts for NaN.
-                                // this is not the same as if (intv<=0)
+            if (isNaN(intv) || intv <= 0) {
                 $('#reality-check p.msg').show('fast');
                 return;
             }
@@ -13206,8 +13274,7 @@ WSTickDisplay.updateChart = function(data){
         this.lastAck = parseInt(this.storage.get('reality_check.ack') || 1);
         click_handler = function () {
             var intv = parseFloat($('#reality-check [interval=1]').val());
-            if (!(intv > 0)) {  // the greater than and negation accounts for NaN.
-                                // this is not the same as if (intv<=0)
+            if (isNaN(intv) || intv <= 0) {
                 $('#reality-check p.msg').show('fast');
                 return;
             }

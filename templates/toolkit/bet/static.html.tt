@@ -11,7 +11,7 @@
       </div>
       <div >
          <select id="underlying"></select>
-         <a class="unicode-info-icon" id="symbol_tip" target="" href="">&#9432;</a>
+         <span class="unicode-info-icon" id="symbol_tip" target="">&#9432;</span>
          <label for="spot" id="spot_label"></label>
          <span id="spot"></span>
       </div>
@@ -54,8 +54,8 @@
                               </span>
                            </div>
                            <div id="expiry_type_endtime">
-                              <input id="expiry_date" type="date" />
-                              <input id="expiry_time" type="time" />
+                              <input id="expiry_date" type="text" class="pickadate"/>
+                              <input id="expiry_time" type="text" class="pickatime"/>
                            </div>
                         </div>
                      </div>

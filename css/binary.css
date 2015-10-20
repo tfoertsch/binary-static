@@ -592,6 +592,10 @@ ul.checked li {
   outline: 0;
 }
 
+.empty-space {
+  margin-top: 137px;
+}
+
 *,
 *:after,
 *:before {
@@ -4965,6 +4969,7 @@ table .loss, table .lower {
 #trading_socket_container #symbol_tip {
   padding-right: 8px;
   padding-bottom: 5px;
+  cursor: pointer;
 }
 #trading_socket_container #spot_label {
   display: none;
@@ -4974,6 +4979,9 @@ table .loss, table .lower {
 }
 
 @media all and (max-width: 640px) {
+  #trading_socket_container #contract_market_form_container {
+    height: auto;
+  }
   #trading_socket_container #contract_purchase_spots {
     max-height: 205px;
   }
@@ -5152,6 +5160,10 @@ table .loss, table .lower {
   color: inherit;
   background-image: none;
 }
+#trading_bottom_content #last_digit_histo_form {
+  overflow: hidden;
+  margin-bottom: 20px;
+}
 
 @media all and (max-width: 640px) {
   #trading_bottom_content ul#betsBottomPage {
@@ -5163,6 +5175,57 @@ table .loss, table .lower {
 /*
  * DO NOT ADD ANY COMMON STYLING BELOW THIS. ALL OTHER STYLING GO ABOVE THIS
  */
+.api_token table td {
+  text-align: center !important;
+  vertical-align: middle !important;
+}
+.api_token fieldset {
+  border-bottom: 1px solid #E5E5E5;
+  margin: 20px 0;
+}
+
+@media screen and (max-width: 480px) {
+  .api_token table td, .api_token table th {
+    font-size: 80%;
+  }
+  .api_token table button {
+    font-size: 80%;
+    padding: 10px 15px;
+  }
+  .api_token .errorfield {
+    font-size: 80% !important;
+  }
+}
+.career .xquote {
+  background-color: #F2F2F2;
+  padding: 20px 20px;
+  margin: 30px 0;
+}
+.career .xquote div {
+  overflow: hidden;
+}
+.career .xquote div .picture {
+  float: left;
+  padding-right: 20px;
+  width: 15%;
+}
+.career .xquote div .text {
+  margin-top: 5%;
+}
+@media screen and (max-width: 767px) {
+  .career .xquote .text {
+    margin-top: 2% !important;
+  }
+}
+
+.empty-space {
+  margin-top: 115px;
+}
+
+.small-margin {
+  margin-top: 15px;
+}
+
 /* Language based rules */
 /* Specific rules for languages */
 /*Japan Language */
@@ -5245,7 +5308,25 @@ body.ID .regulatory-logo {
   display: none !important;
 }
 body.ID #regulatory-text {
-  margin-top: 20px;
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+body.ID #footer #social-networks {
+  padding-top: 0px;
+}
+body.ID .id-hide {
+  display: none !important;
+}
+body.ID .extra-space {
+  margin-top: 127px;
+}
+@media screen and (max-width: 480px) {
+  body.ID .empty-space {
+    margin-top: 0 !important;
+  }
+  body.ID .extra-space {
+    margin-top: 0 !important;
+  }
 }
 
 /*Italian Language */
@@ -5275,6 +5356,10 @@ body.IT h1, body.IT h2, body.IT h3, body.IT h4, body.IT h5, body.IT h6 {
 
   #footer-regulatory #social-networks {
     text-align: center;
+  }
+
+  .empty-space {
+    margin-top: 90px;
   }
 }
 @media screen and (max-width: 640px) {
@@ -5317,6 +5402,11 @@ body.IT h1, body.IT h2, body.IT h3, body.IT h4, body.IT h5, body.IT h6 {
     z-index: 0 !important;
     margin-top: 0px !important;
     background: #fff;
+  }
+}
+@media screen and (max-width: 480px) {
+  .empty-space {
+    margin-top: 0;
   }
 }
 /* external stylesheets
