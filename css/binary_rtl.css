@@ -4557,10 +4557,6 @@ table .loss, table .lower {
 #trading_socket_container .button button {
   cursor: pointer;
 }
-#trading_socket_container .submitted input:invalid + label::after {
-  content: 'invalid input';
-  padding-left: 10px;
-}
 #trading_socket_container .row, #trading_socket_container .row-inner {
   display: flex;
   justify-content: space-around;
@@ -4709,10 +4705,11 @@ table .loss, table .lower {
 }
 #trading_socket_container #contract_prices_container #contract_purchase_profit_list,
 #trading_socket_container #contract_prices_container #contract_purchase_spots .row {
+  padding: 3px 0;
   flex-direction: row !important;
 }
 #trading_socket_container #contract_prices_container #contract_purchase_spots {
-  max-height: 180px;
+  height: 110px;
   overflow: hidden;
 }
 #trading_socket_container #contract_prices_container #contract_purchase_spots.won {
@@ -4909,9 +4906,6 @@ table .loss, table .lower {
   #trading_socket_container #contract_market_form_container {
     height: auto;
   }
-  #trading_socket_container #contract_purchase_spots {
-    max-height: 205px;
-  }
   #trading_socket_container #expiry_time {
     width: 175px;
   }
@@ -4936,6 +4930,9 @@ table .loss, table .lower {
   #trading_socket_container #contract_symbol_container #contract_markets_container {
     margin-right: 0;
     text-align: inherit;
+  }
+  #trading_socket_container #contract_prices_container #contract_purchase_spots {
+    height: auto;
   }
   #trading_socket_container #contract_prices_container #price_container_top {
     margin-right: 0 !important;
@@ -5129,6 +5126,58 @@ table .loss, table .lower {
   margin-top: 15px;
 }
 
+.about-us .blue-fill {
+  background-color: #F5F6F8;
+  margin-top: 60px;
+  margin-bottom: 30px;
+  padding-bottom: 20px;
+}
+.about-us h1.margin-top {
+  margin-top: 30px;
+}
+.about-us .border-bottom {
+  border-bottom: 1px solid #dedede;
+}
+.about-us .border-right-top {
+  border-right: 1px solid #dedede;
+  padding-bottom: 50px;
+}
+.about-us .align {
+  padding-top: 30px;
+}
+.about-us .border-right-top:nth-of-type(1), .about-us .border-right-top:nth-of-type(2) {
+  height: 200px;
+}
+.about-us .border-right-bottom {
+  border-right: 1px solid #dedede;
+  padding-top: 30px;
+}
+.about-us h1 {
+  margin-top: 60px;
+  margin-bottom: 60px;
+}
+.about-us .mac {
+  width: 90% !important;
+  margin-top: 20px;
+}
+.about-us img.responsive {
+  width: 50%;
+}
+@media screen and (max-width: 480px) {
+  .about-us .facts .grd-grid-6 {
+    padding-right: 0px;
+    padding-left: 0px;
+    padding-bottom: 20px;
+  }
+  .about-us .border-bottom {
+    border: none;
+  }
+  .about-us .border-right-top, .about-us .border-right-bottom {
+    padding-bottom: 0px;
+    border: none;
+  }
+}
+
 /* Language based rules */
 /* Specific rules for languages */
 /*Japan Language */
@@ -5204,6 +5253,9 @@ body.FR h1, body.FR h2, body.FR h3, body.FR h4, body.FR h5, body.FR h6 {
 /*Arabic Language */
 body.AR .regulatory-logo {
   display: none !important;
+}
+body.AR .ar-hide {
+  display: none;
 }
 
 /*Indonesian Language */
