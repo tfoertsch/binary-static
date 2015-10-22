@@ -4858,6 +4858,15 @@ table .loss, table .lower {
   -webkit-flex: 1 0 auto;
       -ms-flex: 1 0 auto;
           flex: 1 0 auto;
+  display: -webkit-flex;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-align-items: center;
+      -ms-flex-align: center;
+          align-items: center;
+  -webkit-justify-content: center;
+      -ms-flex-pack: center;
+          justify-content: center;
 }
 #trading_socket_container #contract_prices_container .contract_amount {
   font-weight: bold;
@@ -4901,6 +4910,9 @@ table .loss, table .lower {
       -ms-flex-align: center;
           align-items: center;
   width: 230px;
+}
+#trading_socket_container #contract_prices_container .price_container .price_wrapper.small {
+  width: 95px;
 }
 #trading_socket_container #contract_prices_container .price_container .price_wrapper div {
   padding: 0 5px;
@@ -5021,6 +5033,9 @@ table .loss, table .lower {
         -ms-flex-direction: row !important;
             flex-direction: row !important;
   }
+  #trading_socket_container #contract_prices_container .price_wrapper.small {
+    width: auto;
+  }
   #trading_socket_container #contract_prices_container .row {
     -webkit-flex-direction: column;
         -ms-flex-direction: column;
@@ -5043,6 +5058,9 @@ table .loss, table .lower {
 
   #trading_socket_container #contract_prices_container .price_container .price_wrapper {
     width: 100%;
+  }
+  #trading_socket_container #contract_prices_container .price_container .price_wrapper.small {
+    width: auto;
   }
 }
 @media all and (max-width: 768px) {
