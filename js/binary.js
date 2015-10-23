@@ -788,7 +788,7 @@ Menu.prototype = {
                 this.show_main_menu();
             }
         } else {
-            var is_mojo_page = /^\/$|\/login|\/home|\/smart-indices|\/ad|\/open-source-projects|\/white-labels|\/bulk-trader-facility|\/partners|\/payment-agent|\/about-us$/.test(window.location.pathname);
+            var is_mojo_page = /^\/$|\/login|\/home|\/smart-indices|\/ad|\/open-source-projects|\/white-labels|\/bulk-trader-facility|\/partners|\/payment-agent|\/about-us|\/group-information|\/group-history|\/careers|\/contact|\/terms-and-conditions|\/terms-and-conditions-jp|\/responsible-trading|\/us_patents|\/signup$/.test(window.location.pathname);
             if(!is_mojo_page) {
                 trading.addClass('active');
                 this.show_main_menu();
@@ -7449,7 +7449,7 @@ BetForm.Time.EndTime.prototype = {
         },
         register: function () {
             var that = this;
-            $('#profit-table, #portfolio-table, #bet_container, #statement-table, #trading_socket_container').on('click', '.open_contract_details', function (e) {
+            $('#profit-table, #portfolio-table, #bet_container, #statement-table').on('click', '.open_contract_details', function (e) {
                 var $this = $(this);
                 e.preventDefault();
                 _previous_button_clicked = this;
@@ -11395,7 +11395,11 @@ var Durations = (function(){
         // jquery for datepicker
         var amountElement = $('#duration_amount');
         if (unit.value === 'd') {
+            var tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+
             amountElement.datepicker({
+                minDate: tomorrow,
                 onSelect: function() {
                     var date = $(this).datepicker('getDate');
                     var today = new Date();
@@ -11905,7 +11909,7 @@ var TradingEvents = (function () {
         var view_button = document.getElementById('contract_purchase_button');
         if(view_button){
             view_button.addEventListener('click', debounce( function (e) {
-                BetSell.sell_at_market($(e.traget)[0]);
+                BetSell.sell_at_market(e.target);
             }));
         }
 
@@ -12527,7 +12531,7 @@ var Purchase = (function () {
 
             heading.textContent = Content.localize().textContractConfirmationHeading;
             descr.textContent = receipt['longcode'];
-            reference.textContent = Content.localize().textContractConfirmationReference + ' ' + receipt['fmb_id'];
+            reference.textContent = Content.localize().textContractConfirmationReference + ' ' + receipt['contract_id'];
 
             var payout_value, cost_value, profit_value;
 
@@ -12587,13 +12591,12 @@ var Purchase = (function () {
                     spread_bet = 0;
                 }
                 var button_attrs = {
-                    contract_id: receipt['fmb_id'],
+                    contract_id: receipt['contract_id'],
                     currency: document.getElementById('currency').value,
                     purchase_price: cost_value,
                     purchase_time: (purchase_date.getUTCFullYear()+'-'+(purchase_date.getUTCMonth()+1)+'-'+purchase_date.getUTCDate()+' '+purchase_date.getUTCHours()+':'+purchase_date.getUTCMinutes()+':'+purchase_date.getUTCSeconds()),
                     shortcode:receipt['shortcode'],
                     spread_bet:spread_bet,
-                    broker_code:receipt.broker_code,
                     language:page.language(),
                     url:url
                 };
