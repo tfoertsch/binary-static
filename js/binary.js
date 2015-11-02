@@ -1957,6 +1957,7 @@ if (!/backoffice/.test(document.URL)) { // exclude BO
         var match = document.cookie.match(/\bloginid=(\w+)/);
         match = match ? match[1] : '';
 
+        console.log('active_loginid='+match+', setting storage handler...');
         $(window).on('storage', function (jq_event) {
             if (jq_event.originalEvent.key !== 'active_loginid') return;
             if (jq_event.originalEvent.newValue === match) return;
