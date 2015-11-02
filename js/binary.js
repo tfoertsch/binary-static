@@ -1949,6 +1949,7 @@ onLoad.queue(function () {
 
 // onLoad.queue does not work on the home page.
 // jQuery's ready function works always.
+console.log('>>> '+document.URL);
 if (!/backoffice/.test(document.URL)) { // exclude BO
     $(document).ready(function () {
         // $.cookie is not always available.
