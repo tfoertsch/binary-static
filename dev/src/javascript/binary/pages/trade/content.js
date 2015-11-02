@@ -4,8 +4,7 @@ var Content = (function () {
     var localize = {};
 
     var populate = function () {
-
-        localize =  {
+        localize = {
             textStartTime: text.localize('Start time'),
             textSpot: text.localize('Spot'),
             textBarrier: text.localize('Barrier'),
@@ -54,7 +53,25 @@ var Content = (function () {
             textSpreadTypeShort: text.localize('Short'),
             textSpreadDepositComment: text.localize('Deposit of'),
             textSpreadRequiredComment: text.localize('is required. Current spread'),
-            textSpreadPointsComment: text.localize('points')
+            textSpreadPointsComment: text.localize('points'),
+            textContractStatusWon: text.localize('This contract won'),
+            textContractStatusLost: text.localize('This contract lost'),
+            textTickResultLabel: text.localize('Tick'),
+            textStatement: text.localize('Statement'),
+            textDate: text.localize('Date'),
+            textRef: text.localize('Ref.'),
+            textAction: text.localize('Action'),
+            textDescription: text.localize('Description'),
+            textCreditDebit: text.localize('Credit/Debit'),
+            textBalance: text.localize('Balance'),
+            textProfitTable: text.localize('Profit Table'),
+            textPurchaseDate: text.localize('Purchase Date'),
+            textContract: text.localize('Contract'),
+            textPurchasePrice: text.localize('Purchase Price'),
+            textSaleDate: text.localize('Sale Date'),
+            textSalePrice: text.localize('Sale Price'),
+            textProfitLoss: text.localize('Profit/Loss'),
+            textTotalProfitLoss: text.localize('Total Profit/Loss')
         };
 
         var starTime = document.getElementById('start_time_label');
@@ -190,9 +207,21 @@ var Content = (function () {
         }
     };
 
+    var statementTranslation = function(){
+        var titleElement = document.getElementById("statement-title").firstElementChild;
+        titleElement.textContent = localize.textStatement;
+    };
+    
+    var profitTableTranslation = function(){
+        var titleElement = document.getElementById("profit-table-title").firstElementChild;
+        titleElement.textContent = localize.textProfitTable;
+    };
+
     return {
         localize: function () { return localize; },
-        populate: populate
+        populate: populate,
+        statementTranslation: statementTranslation,
+        profitTableTranslation: profitTableTranslation
     };
 
 })();

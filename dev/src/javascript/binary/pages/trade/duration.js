@@ -12,7 +12,9 @@ var Durations = (function(){
     'use strict';
 
     var trading_times = {};
+    var selected_duration = {};
     var expiry_time = '';
+    var has_end_date = 0;
 
     var displayDurations = function(startType) {
         var durations = Contract.durations();
@@ -147,12 +149,31 @@ var Durations = (function(){
                 return -1;
             }
         });
+        has_end_date = 0;
         for(var k=0; k<list.length; k++){
             var d = list[k];
+            if(d!=='t'){
+                has_end_date = 1;
+            }
             if(duration_list.hasOwnProperty(d)){
                 target.appendChild(duration_list[d]);
             }
         }
+
+        if(selected_duration.unit){
+            if(!selectOption(selected_duration.unit,target)){
+                selected_duration = {};
+            }
+        }
+
+        durationPopulate();
+    };
+
+    var displayEndTime = function(){
+        var current_moment = moment().add(5, 'minutes').utc();
+        document.getElementById('expiry_date').value = current_moment.format('YYYY-MM-DD');
+        document.getElementById('expiry_time').value = current_moment.format('HH:mm');
+        Durations.setTime(current_moment.format('HH:mm'));
 
         durationPopulate();
     };
@@ -186,8 +207,11 @@ var Durations = (function(){
         var unit = document.getElementById('duration_units');
         if (isVisible(unit)) {
             var unitValue = unit.options[unit.selectedIndex].getAttribute('data-minimum');
-            document.getElementById('duration_amount').value = unitValue;
             document.getElementById('duration_minimum').textContent = unitValue;
+            if(selected_duration.amount && selected_duration.unit > unitValue){
+                unitValue = selected_duration.amount;
+            }
+            document.getElementById('duration_amount').value = unitValue;
             displayExpiryType(unit.value);
         } else {
             displayExpiryType();
@@ -201,8 +225,8 @@ var Durations = (function(){
 
             amountElement.datepicker({
                 minDate: tomorrow,
-                onSelect: function() {
-                    var date = $(this).datepicker('getDate');
+                onSelect: function(value) {
+                    var date = new Date(value);
                     var today = new Date();
                     var dayDiff = Math.ceil((date - today) / (1000 * 60 * 60 * 24));
                     amountElement.val(dayDiff);
@@ -249,7 +273,7 @@ var Durations = (function(){
         option.appendChild(content);
         fragment.appendChild(option);
 
-        if (unit !== 't') {
+        if (has_end_date) {
             option = document.createElement('option');
             content = document.createTextNode(Content.localize().textEndTime);
             option.setAttribute('value', 'endtime');
@@ -284,13 +308,36 @@ var Durations = (function(){
         }
     };
 
+    var selectEndDate = function(end_date){
+        var expiry_time = document.getElementById('expiry_time');
+        if(moment(end_date).isAfter(moment(),'day')){
+            Durations.setTime('');
+            StartDates.setNow();
+            expiry_time.hide();
+            var date_start = StartDates.node();
+
+            processTradingTimesRequest(end_date);
+        }
+        else{
+            Durations.setTime(expiry_time.value);
+            expiry_time.show();
+            processPriceRequest();
+        }
+        sessionStorage.setItem('end_date',end_date);
+        Barriers.display();
+    };
+
     return {
         display: displayDurations,
+        displayEndTime: displayEndTime,
         populate: durationPopulate,
         setTime: function(time){ expiry_time = time; },
         getTime: function(){ return expiry_time; },
         processTradingTimesAnswer: processTradingTimesAnswer,
-        trading_times: function(){ return trading_times; }
+        trading_times: function(){ return trading_times; },
+        select_amount: function(a){ selected_duration.amount = a; },
+        select_unit: function(u){ selected_duration.unit = u; } ,
+        selectEndDate: selectEndDate       
     };
 })();
 

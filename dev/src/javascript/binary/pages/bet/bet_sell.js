@@ -15,6 +15,7 @@ var BetSell = function() {
         reload_page_on_close: false,
     };
     return {
+        change_prev_button:function(prev_button){_previous_button_clicked = prev_button;},
         _init: function () {
             _sell_request = null;
             _analyse_request = null;
@@ -739,15 +740,23 @@ var BetSell = function() {
             this.cancel_previous_analyse_request();
             var attr = this.data_attr(element);
             var params = this.get_params(element);
+            var $loading = $('#trading_init_progress');
+            if($loading){
+                $loading.show();
+            }
             _analyse_request = $.ajax(ajax_loggedin({
                 url     : attr.url(),
                 type    : 'POST',
                 async   : true,
                 data    : params,
                 success : function (data) {
+                    if($loading){
+                        $loading.hide();
+                    }
                     var con = that.show_spread_popup(data);
-                    var contract_status = con.find('#status').text();
-                    if (contract_status === 'Open') {
+                    var closed = con.find('#status').hasClass('loss');
+                    if (!closed) {
+                        console.log('test');
                         var field = $('#sell_extra_info_data');
                         var sell_channel = field.attr('sell_channel');
                         BetPrice.spread.stream(attr.model.sell_channel() ? attr.model.sell_channel() : sell_channel);
