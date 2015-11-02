@@ -232,7 +232,6 @@ RealityCheck = (function ($) {
     return RealityCheck;
 }(jQuery));
 
-console.log('>>>>>> '+document.URL);
 if (!/backoffice/.test(document.URL)) { // exclude BO
     $(document).ready(function () {
         // console.log('About to create reality-check object');
